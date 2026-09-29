@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Porra · Maratón de Chicago</title>
+<meta name="description" content="Asistente de porra para el Maratón de Chicago 2026: dónde ver a tus corredores, cómo moverte y si vas a tiempo.">
+<meta name="theme-color" content="#16263F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Porra">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app" id="app">
+<header>
+  <div>
+    <div class="race">Chicago · 11 oct 2026</div>
+    <h1>Porra</h1>
+  </div>
+  <span class="sub" id="startLabel"></span>
+  <div class="clock" id="clock"></div>
+</header>
+<div class="main">
+  <div class="mapwrap" id="mapwrap">
+    <svg id="map" role="img" aria-label="Mapa de calles con la ruta del maratón, estaciones del metro, tus puntos y corredores"></svg>
+    <div class="ctrl">
+      <button id="zin" aria-label="Acercar">＋</button>
+      <button id="zout" aria-label="Alejar">－</button>
+      <button data-view="all">Todo</button>
+      <button data-view="north">Norte</button>
+      <button data-view="center">Centro</button>
+      <button data-view="south">Sur</button>
+      <button id="vMe">Yo</button>
+      <span class="sep"></span>
+      <button id="tgStreets" aria-pressed="true">Calles</button>
+      <button id="tgCTA" aria-pressed="true">Metro</button>
+    </div>
+    <div class="pickbar" id="pickbar" hidden><span id="picktext">Toca el mapa</span><button class="btn sm" id="pickcancel">Cancelar</button></div>
+    <div class="hlbar" id="hlbar" hidden><span id="hltext"></span><button class="btn sm" id="hlclear">Quitar ruta</button></div>
+    <details class="legend" id="legend">
+      <summary>Simbología</summary>
+      <div class="lg"><i style="background:var(--course);height:5px"></i>Recorrido</div>
+      <div class="lg"><i style="background:#C60C30"></i>Línea Roja</div>
+      <div class="lg"><i style="background:#62361B"></i>Línea Café</div>
+      <div class="lg"><i style="background:#00A1DE"></i>Línea Azul</div>
+      <div class="lg"><i style="background:#E27EA6"></i>Línea Rosa</div>
+      <div class="lg"><i style="background:#009B3A"></i>Línea Verde</div>
+      <div class="lg"><i style="background:#F9461C"></i>Línea Naranja</div>
+      <div class="lg"><i style="background:repeating-linear-gradient(90deg,var(--hl) 0 4px,transparent 4px 7px)"></i>Traslado a pie</div>
+      <div class="lg"><span class="dot" style="background:var(--accent)"></span>Punto de tu plan</div>
+      <div class="lg"><span class="dot" style="background:var(--pin);border:2px solid var(--accent)"></span>Punto disponible</div>
+    </details>
+    <div class="scrub" id="scrubbox">
+      <div class="t" id="scrubT">9:00</div>
+      <input type="range" id="scrub" min="440" max="900" step="1" value="540" aria-label="Hora para ver dónde van los corredores">
+      <div class="where" id="scrubW"></div>
+    </div>
+  </div>
+  <div class="panel" id="panel">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-live" aria-selected="false">En vivo</button>
+      <button role="tab" id="tab-plan" aria-selected="true">Plan</button>
+      <button role="tab" id="tab-tr" aria-selected="false">Traslados</button>
+      <button role="tab" id="tab-run" aria-selected="false">Corredores</button>
+      <button role="tab" id="tab-set" aria-selected="false">Ajustes</button>
+    </div>
+    <section class="sec" id="pane-live" hidden></section>
+    <section class="sec" id="pane-plan"></section>
+    <section class="sec" id="pane-tr" hidden></section>
+    <section class="sec" id="pane-run" hidden></section>
+    <section class="sec" id="pane-set" hidden></section>
+  </div>
+</div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+<noscript>Esta app necesita JavaScript.</noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
