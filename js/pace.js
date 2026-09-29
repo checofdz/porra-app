@@ -1,5 +1,5 @@
 // Runner projection: average pace vs. recent trend, with uncertainty window and fatigue
-import { WAVES, CPS } from "./race-chicago.js";
+import { CPS, corralStart } from "./race-chicago.js";
 import { S, parseHM, now } from "./state.js";
 import { TOTAL } from "./engine.js";
 
@@ -7,7 +7,7 @@ let cache = new Map();
 export function invalidatePace() { cache = new Map(); }
 
 export function points(r) {
-  const planned = WAVES[r.wave].t + (+r.delay || 0);
+  const planned = corralStart(r.corral);
   const start = r.splits["0"] != null ? r.splits["0"] : planned;
   const pts = [[0, start]];
   for (const cp of CPS) { if (cp.km > 0 && r.splits[cp.k] != null) pts.push([cp.km, r.splits[cp.k]]); }

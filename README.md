@@ -1,6 +1,8 @@
-# Porra · Maratón de Chicago 2026
+# Cheer Crew · Chicago Marathon 2026
 
 Asistente web (PWA) para porras: dónde ver a tus corredores, cómo moverte entre puntos sin cruzar el recorrido y si vas a tiempo en vivo.
+
+Live: https://cheer.elevatesports.group
 
 ## Qué hace (etapa 1 · Chicago)
 - **Mapa de calles reales** (City of Chicago Street Center Lines) con la ruta 2026, estaciones y líneas del “L”.
@@ -10,6 +12,7 @@ Asistente web (PWA) para porras: dónde ver a tus corredores, cómo moverte entr
 - **Traslados**: caminatas sobre calles reales, el recorrido como barrera (cruces con penalización), metro con esperas de domingo y trasbordos. Varias opciones por tramo; eliges una.
 - **En vivo**: GPS del teléfono → tiempo real al siguiente punto, holgura real vs. la hora en que pasa el primero, paradas que faltan en el metro, detección de atraso y alternativas si ya no llegas.
 - **Avisos**: sal ya, vas justo / no llegas, faltan N paradas, bájate, tu corredor llega en ~5 min, ¿ya pasó el 15K?, split registrado con nuevo ritmo.
+- **Bienvenida guiada** (hotel → corredores con corral → plan), **español / inglés**, **compartir plan por link** y **alarma** con cuenta regresiva cuando llega tu corredor.
 - **Simulación** de día de carrera (reloj acelerado + ubicación simulada) para probar antes del 11 de octubre.
 - Funciona sin señal después de abrirla una vez (service worker).
 
@@ -25,6 +28,10 @@ js/plan.js            prioridades, ventanas por punto, optimizador
 js/map.js             mapa SVG
 js/live.js            GPS, ETA en vivo, progreso en metro, reglas de avisos
 js/ui.js              paneles
+js/onboarding.js      bienvenida en 3 pasos
+js/share.js           compartir / importar plan por link (#plan=…)
+js/alarm.js           alarma de llegada (sonido, vibración, cuenta regresiva)
+js/i18n.js, i18n-en.js  idiomas (las llaves son el texto en español)
 data/mapdata.json     calles, etiquetas, costa, río, ruta calibrada
 data/walkgraph.json   grafo peatonal con lados del recorrido
 sw.js, manifest.webmanifest, icons/

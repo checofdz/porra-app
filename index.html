@@ -3,15 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Porra · Maratón de Chicago</title>
-<meta name="description" content="Asistente de porra para el Maratón de Chicago 2026: dónde ver a tus corredores, cómo moverte y si vas a tiempo.">
+<title>Cheer Crew · Chicago Marathon</title>
+<meta name="description" content="Cheer Crew: your spectator assistant for the 2026 Chicago Marathon — where to cheer, how to get around by CTA, and whether you are on time.">
 <meta name="theme-color" content="#16263F">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Porra">
+<meta name="apple-mobile-web-app-title" content="Cheer Crew">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="css/app.css">
@@ -20,55 +20,55 @@
 <div class="app" id="app">
 <header>
   <div>
-    <div class="race">Chicago · 11 oct 2026</div>
-    <h1>Porra</h1>
+    <div class="race" data-i18n="Maratón de Chicago · 11 oct 2026">Maratón de Chicago · 11 oct 2026</div>
+    <h1>Cheer Crew</h1>
   </div>
   <span class="sub" id="startLabel"></span>
-  <div class="clock" id="clock"></div>
+  <div class="hright"><button class="langbtn" id="langBtn" aria-label="Language">EN</button><div class="clock" id="clock"></div></div>
 </header>
 <div class="main">
   <div class="mapwrap" id="mapwrap">
-    <svg id="map" role="img" aria-label="Mapa de calles con la ruta del maratón, estaciones del metro, tus puntos y corredores"></svg>
+    <svg id="map" role="img" data-i18n-aria="Mapa de calles con la ruta del maratón, estaciones del metro, tus puntos y corredores" aria-label="map"></svg>
     <div class="ctrl">
-      <button id="zin" aria-label="Acercar">＋</button>
-      <button id="zout" aria-label="Alejar">－</button>
-      <button data-view="all">Todo</button>
-      <button data-view="north">Norte</button>
-      <button data-view="center">Centro</button>
-      <button data-view="south">Sur</button>
-      <button id="vMe">Yo</button>
+      <button id="zin" data-i18n-aria="Acercar" aria-label="+">＋</button>
+      <button id="zout" data-i18n-aria="Alejar" aria-label="-">－</button>
+      <button data-view="all" data-i18n="Todo">Todo</button>
+      <button data-view="north" data-i18n="Norte">Norte</button>
+      <button data-view="center" data-i18n="Centro">Centro</button>
+      <button data-view="south" data-i18n="Sur">Sur</button>
+      <button id="vMe" data-i18n="Yo">Yo</button>
       <span class="sep"></span>
-      <button id="tgStreets" aria-pressed="true">Calles</button>
-      <button id="tgCTA" aria-pressed="true">Metro</button>
+      <button id="tgStreets" aria-pressed="true" data-i18n="Calles">Calles</button>
+      <button id="tgCTA" aria-pressed="true" data-i18n="Metro">Metro</button>
     </div>
-    <div class="pickbar" id="pickbar" hidden><span id="picktext">Toca el mapa</span><button class="btn sm" id="pickcancel">Cancelar</button></div>
-    <div class="hlbar" id="hlbar" hidden><span id="hltext"></span><button class="btn sm" id="hlclear">Quitar ruta</button></div>
+    <div class="pickbar" id="pickbar" hidden><span id="picktext">Toca el mapa</span><button class="btn sm" id="pickcancel" data-i18n="Cancelar">Cancelar</button></div>
+    <div class="hlbar" id="hlbar" hidden><span id="hltext"></span><button class="btn sm" id="hlclear" data-i18n="Quitar ruta">Quitar ruta</button></div>
     <details class="legend" id="legend">
-      <summary>Simbología</summary>
-      <div class="lg"><i style="background:var(--course);height:5px"></i>Recorrido</div>
-      <div class="lg"><i style="background:#C60C30"></i>Línea Roja</div>
-      <div class="lg"><i style="background:#62361B"></i>Línea Café</div>
-      <div class="lg"><i style="background:#00A1DE"></i>Línea Azul</div>
-      <div class="lg"><i style="background:#E27EA6"></i>Línea Rosa</div>
-      <div class="lg"><i style="background:#009B3A"></i>Línea Verde</div>
-      <div class="lg"><i style="background:#F9461C"></i>Línea Naranja</div>
-      <div class="lg"><i style="background:repeating-linear-gradient(90deg,var(--hl) 0 4px,transparent 4px 7px)"></i>Traslado a pie</div>
-      <div class="lg"><span class="dot" style="background:var(--accent)"></span>Punto de tu plan</div>
-      <div class="lg"><span class="dot" style="background:var(--pin);border:2px solid var(--accent)"></span>Punto disponible</div>
+      <summary data-i18n="Simbología">Simbología</summary>
+      <div class="lg"><i style="background:var(--course);height:5px"></i><span data-i18n="Recorrido">Recorrido</span></div>
+      <div class="lg"><i style="background:#C60C30"></i><span data-i18n="Línea Roja">Línea Roja</span></div>
+      <div class="lg"><i style="background:#62361B"></i><span data-i18n="Línea Café">Línea Café</span></div>
+      <div class="lg"><i style="background:#00A1DE"></i><span data-i18n="Línea Azul">Línea Azul</span></div>
+      <div class="lg"><i style="background:#E27EA6"></i><span data-i18n="Línea Rosa">Línea Rosa</span></div>
+      <div class="lg"><i style="background:#009B3A"></i><span data-i18n="Línea Verde">Línea Verde</span></div>
+      <div class="lg"><i style="background:#F9461C"></i><span data-i18n="Línea Naranja">Línea Naranja</span></div>
+      <div class="lg"><i style="background:repeating-linear-gradient(90deg,var(--hl) 0 4px,transparent 4px 7px)"></i><span data-i18n="Traslado a pie">Traslado a pie</span></div>
+      <div class="lg"><span class="dot" style="background:var(--accent)"></span><span data-i18n="Punto de tu plan">Punto de tu plan</span></div>
+      <div class="lg"><span class="dot" style="background:var(--pin);border:2px solid var(--accent)"></span><span data-i18n="Punto disponible">Punto disponible</span></div>
     </details>
     <div class="scrub" id="scrubbox">
       <div class="t" id="scrubT">9:00</div>
-      <input type="range" id="scrub" min="440" max="900" step="1" value="540" aria-label="Hora para ver dónde van los corredores">
+      <input type="range" id="scrub" min="440" max="900" step="1" value="540" data-i18n-aria="Hora para ver dónde van los corredores" aria-label="time">
       <div class="where" id="scrubW"></div>
     </div>
   </div>
   <div class="panel" id="panel">
     <div class="tabs" role="tablist">
-      <button role="tab" id="tab-live" aria-selected="false">En vivo</button>
-      <button role="tab" id="tab-plan" aria-selected="true">Plan</button>
-      <button role="tab" id="tab-tr" aria-selected="false">Traslados</button>
-      <button role="tab" id="tab-run" aria-selected="false">Corredores</button>
-      <button role="tab" id="tab-set" aria-selected="false">Ajustes</button>
+      <button role="tab" id="tab-live" aria-selected="false" data-i18n="En vivo">En vivo</button>
+      <button role="tab" id="tab-plan" aria-selected="true" data-i18n="Plan">Plan</button>
+      <button role="tab" id="tab-tr" aria-selected="false" data-i18n="Traslados">Traslados</button>
+      <button role="tab" id="tab-run" aria-selected="false" data-i18n="Corredores">Corredores</button>
+      <button role="tab" id="tab-set" aria-selected="false" data-i18n="Ajustes">Ajustes</button>
     </div>
     <section class="sec" id="pane-live" hidden></section>
     <section class="sec" id="pane-plan"></section>
@@ -79,6 +79,8 @@
 </div>
 </div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
+<div class="sheet" id="sheet" hidden></div>
+<div class="alarm" id="alarm" hidden></div>
 <noscript>Esta app necesita JavaScript.</noscript>
 <script type="module" src="js/main.js"></script>
 </body>

@@ -3,6 +3,7 @@ import { ST, CTAG, CTAC, LC, VIEWS } from "./race-chicago.js";
 import { S, now, emit } from "./state.js";
 import { MD, C, P, unP, W, H, MI, TOTAL, SPOTS, ptAtKm, place } from "./engine.js";
 import { proj, kmAt } from "./pace.js";
+import { t } from "./i18n.js";
 
 const NS = "http://www.w3.org/2000/svg";
 let svg, gStreets, gCTA, gHL, gO, SE = {}, riverEl, cLine, cHalo;
@@ -77,13 +78,13 @@ export function draw() {
     el("rect", { x: x - sz / 2, y: y - sz / 2, width: sz, height: sz, rx: 2 * u, fill: "var(--panel)", stroke: on ? "var(--hl)" : "var(--fg)", "stroke-width": (on ? 2.5 : 1.4) * u }, gO);
     if (u < 1.5 || on) txt(gO, x + 8 * u, y + 3.5 * u, ST[k][0], { "font-size": fs * 0.9, "font-weight": 600, fill: "var(--fg)", stroke: "var(--land)", "stroke-width": 3 * u, "paint-order": "stroke", "pointer-events": "none" }); }
   for (let mm = 1; mm <= 26; mm++) { if (u > 2.2 && mm % 5) continue; const [la, ln] = ptAtKm(mm * MI); const [x, y] = P(la, ln); el("circle", { cx: x, cy: y, r: 7 * u, fill: "var(--course)", stroke: "var(--halo)", "stroke-width": 1.5 * u }, gO); txt(gO, x, y + 3.4 * u, mm, { "text-anchor": "middle", "font-size": 9 * u, "font-weight": 700, fill: "var(--halo)", "font-family": "IBM Plex Mono, monospace", "pointer-events": "none" }); }
-  [["SALIDA", C[0]], ["META", C[C.length - 1]]].forEach(([n, p]) => { const [x, y] = P(p[0], p[1]); el("rect", { x: x + 9 * u, y: y - 8 * u, width: (n.length * 7 + 10) * u, height: 16 * u, rx: 3 * u, fill: "var(--course)" }, gO); txt(gO, x + 14 * u, y + 4.5 * u, n, { "font-size": 11 * u, "font-weight": 700, fill: "var(--halo)", "font-family": "Barlow Condensed, sans-serif" }); });
+  [[t("SALIDA"), C[0]], [t("META"), C[C.length - 1]]].forEach(([n, p]) => { const [x, y] = P(p[0], p[1]); el("rect", { x: x + 9 * u, y: y - 8 * u, width: (n.length * 7 + 10) * u, height: 16 * u, rx: 3 * u, fill: "var(--course)" }, gO); txt(gO, x + 14 * u, y + 4.5 * u, n, { "font-size": 11 * u, "font-weight": 700, fill: "var(--halo)", "font-family": "Barlow Condensed, sans-serif" }); });
   const order = {}; (S.plan || []).forEach((id, i) => (order[id] = i + 1));
   SPOTS.forEach(s => { let [x, y] = P(s.lat, s.lng); if (s.id === "m29s") x -= 12 * u; if (s.id === "m29n") x += 12 * u; const sel = order[s.id]; const seen = S.live.on && S.live.seen[s.id];
-    const g = el("g", { class: "pin", tabindex: 0, role: "button", "aria-label": (sel ? "Quitar " : "Agregar ") + s.name, style: "cursor:pointer" }, gO);
+    const g = el("g", { class: "pin", tabindex: 0, role: "button", "aria-label": (sel ? t("Quitar") : t("Agregar")) + " " + s.name, style: "cursor:pointer" }, gO);
     el("circle", { cx: x, cy: y, r: (sel ? 12 : 8.5) * u, fill: sel ? (seen ? "var(--muted)" : "var(--accent)") : "var(--pin)", stroke: sel ? "var(--halo)" : "var(--accent)", "stroke-width": 2.5 * u }, g);
     if (sel) txt(g, x, y + 5 * u, sel, { "text-anchor": "middle", "font-size": 14 * u, "font-weight": 700, fill: "var(--accent-ink)", "font-family": "Barlow Condensed, sans-serif" });
-    const tl = el("title", {}, g); tl.textContent = `${s.name} · milla ${s.mile.toFixed(1)}`;
+    const tl = el("title", {}, g); tl.textContent = `${s.name} · ${t("milla")} ${s.mile.toFixed(1)}`;
     g.addEventListener("click", e => { e.stopPropagation(); emit("togglespot", s.id); });
     g.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); emit("togglespot", s.id); } }); });
   { const st = place("start"); const [x, y] = P(st.lat, st.lng); const rr = 11 * u; let d = ""; for (let i = 0; i < 10; i++) { const a = Math.PI / 5 * i - Math.PI / 2, q = i % 2 ? rr * 0.45 : rr; d += (i ? "L" : "M") + (x + Math.cos(a) * q) + " " + (y + Math.sin(a) * q); }

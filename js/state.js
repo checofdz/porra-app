@@ -5,12 +5,9 @@ const KEY = "porra:" + RACE.id + ":v2";
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 export const DEFAULTS = () => ({
-  runners: [
-    { id: uid(), name: "Corredor A (ejemplo)", bib: "", prio: 1, wave: "w2", delay: 10, goal: "4:15", color: RUNNER_COLORS[0], splits: {} },
-    { id: uid(), name: "Corredor B (ejemplo)", bib: "", prio: 2, wave: "w2", delay: 14, goal: "4:30", color: RUNNER_COLORS[1], splits: {} },
-    { id: uid(), name: "Corredor C (ejemplo)", bib: "", prio: 3, wave: "w3", delay: 12, goal: "5:00", color: RUNNER_COLORS[2], splits: {} }
-  ],
-  start: null,            // {name, lat, lng}; null = race default (Hotel Felix)
+  runners: [],
+  start: null,            // {name, lat, lng, address}; null = race default
+  lang: null, onboarded: false, sound: true,
   buf: 5, linger: 2, maxs: 5, avoid: true,
   paceMargin: 3,          // ±% uncertainty on pace
   fatigue: 2,             // % slower per km after km 30
@@ -18,9 +15,12 @@ export const DEFAULTS = () => ({
   streets: true, cta: true,
   scrub: null,
   sim: { on: false, start: 480, speed: 1, wall: 0, gps: null },
-  live: { on: false, idx: 0, phase: "pre", boardT: null, seen: {}, sent: {}, feed: [] },
+  live: { on: false, idx: 0, phase: "pre", boardT: null, seen: {}, sent: {}, feed: [], seenR: {} },
   notif: false, wake: false
 });
+export function newRunner(i, o) {
+  return Object.assign({ id: uid(), name: "", bib: "", prio: i === 0 ? 1 : 2, corral: "H", goal: "4:05", color: RUNNER_COLORS[i % RUNNER_COLORS.length], splits: {} }, o || {});
+}
 
 function load() {
   let s = null;
@@ -30,7 +30,12 @@ function load() {
   for (const k in d) if (s[k] === undefined) s[k] = d[k];
   s.sim = Object.assign(d.sim, s.sim || {});
   s.live = Object.assign(d.live, s.live || {});
-  s.runners.forEach((r, i) => { r.id = r.id || uid(); r.splits = r.splits || {}; r.color = r.color || RUNNER_COLORS[i % RUNNER_COLORS.length]; r.prio = r.prio || 1; });
+  // migrate v1: drop example runners, wave → corral
+  const W2C = { pro: "HP", w1: "C", w2: "H", w3: "L" };
+  s.runners = (s.runners || []).filter(r => !/\(ejemplo\)/.test(r.name || ""));
+  s.runners.forEach((r, i) => { r.id = r.id || uid(); r.splits = r.splits || {}; r.color = r.color || RUNNER_COLORS[i % RUNNER_COLORS.length]; r.prio = r.prio || 1; if (!r.corral) r.corral = W2C[r.wave] || "H"; delete r.wave; delete r.delay; });
+  if (!s.runners.length) { s.onboarded = false; s.plan = null; }
+  s.live.seenR = s.live.seenR || {};
   return s;
 }
 export const S = load();

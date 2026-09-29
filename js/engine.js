@@ -1,6 +1,7 @@
 // Geography, walking network (course as barrier) and CTA routing
 import { RACE, SPOTM, ST, RUNS, BIDIR, LOOP_CONT, XFERS, HW, LN } from "./race-chicago.js";
 import { S } from "./state.js";
+import { t, lang } from "./i18n.js";
 
 export const MI = 1.609344, TOTAL = 42.195;
 const B = RACE.bounds;
@@ -20,7 +21,8 @@ export function streetAtKm(k) { let s = MD.segs[0][1]; for (const g of MD.segs) 
 // ---------- init ----------
 export function initEngine(md, wg) {
   MD = md; C = md.course; WG = wg; WN = wg.nodes; NN = WN.length;
-  SPOTS = Object.keys(md.spots).map(id => { const v = md.spots[id]; return Object.assign({ id, lat: v[0], lng: v[1], km: v[2], mile: v[2] / MI, sides: wg.spots[id] }, SPOTM[id]); }).sort((a, b) => a.km - b.km);
+  const en = lang() === "en";
+  SPOTS = Object.keys(md.spots).map(id => { const v = md.spots[id]; const m = SPOTM[id]; return { id, lat: v[0], lng: v[1], km: v[2], mile: v[2] / MI, sides: wg.spots[id], name: en ? m.en : m.name, tip: en ? m.tipEn : m.tip }; }).sort((a, b) => a.km - b.km);
   byId = {}; SPOTS.forEach(s => (byId[s.id] = s));
   // CSR adjacency
   off = new Int32Array(NN + 1); wg.edges.forEach(e => { off[e[0] + 1]++; off[e[1] + 1]++; }); for (let i = 0; i < NN; i++) off[i + 1] += off[i];
@@ -38,12 +40,13 @@ export function nearestNode(lat, lng, allowCourse) {
   return best < 0 ? 0 : best;
 }
 export function setStart(st) {
-  const d = st || { name: RACE.defaultStart.name, lat: MD.hotel[0], lng: MD.hotel[1], address: RACE.defaultStart.address };
-  START = { id: "start", name: d.name, address: d.address || "", lat: d.lat, lng: d.lng, km: null, node: nearestNode(d.lat, d.lng) };
+  const D = RACE.defaultStart;
+  const d = st || { name: lang() === "en" ? D.nameEn : D.name, lat: D.lat, lng: D.lng, address: D.address, isDefault: true };
+  START = { id: "start", name: d.name, address: d.address || "", lat: d.lat, lng: d.lng, km: null, node: nearestNode(d.lat, d.lng), isDefault: !!d.isDefault };
   byId.start = START; optCache.clear();
 }
 export function place(id) { return byId[id]; }
-export function gpsPlace(lat, lng) { return { id: "gps", name: "Tu ubicación", lat, lng, km: null, node: nearestNode(lat, lng), nocache: true }; }
+export function gpsPlace(lat, lng) { return { id: "gps", name: t("Tu ubicación"), lat, lng, km: null, node: nearestNode(lat, lng), nocache: true }; }
 
 // ---------- walking Dijkstra ----------
 class Heap { constructor() { this.k = []; this.v = []; } push(n, w) { const k = this.k, v = this.v; let i = k.length; k.push(n); v.push(w); while (i > 0) { const p = (i - 1) >> 1; if (v[p] <= w) break; k[i] = k[p]; v[i] = v[p]; i = p; } k[i] = n; v[i] = w; }
@@ -110,10 +113,10 @@ export function options(a, aSide, b) {
   const key = a.id + ":" + srcNode(a, aSide) + ">" + b.id + ":" + destNodes(b).join(",") + "|" + (S.avoid ? 1 : 0);
   if (!a.nocache && optCache.has(key)) return optCache.get(key);
   let res = [];
-  if (a.id && b.id && a.id.startsWith("m29") && b.id.startsWith("m29")) { res = [{ key: "stay", label: "Te quedas", w: 0, rt: 0, cx: 0, side: aSide, stay: true, aSide }]; optCache.set(key, res); return res; }
+  if (a.id && b.id && a.id.startsWith("m29") && b.id.startsWith("m29")) { res = [{ key: "stay", label: t("Te quedas"), w: 0, rt: 0, cx: 0, side: aSide, stay: true, aSide }]; optCache.set(key, res); return res; }
   const Da = walkD(srcNode(a, aSide), a.nocache); const bn = destNodes(b); const Db = bn.map(n => walkD(n));
   const wk = bn.map((n, k) => ({ k, w: Da.w[n], rt: Da.rt[n], cx: Da.cx[n] })).sort((x, y) => x.w - y.w)[0];
-  if (wk.rt < 120) res.push({ key: "walk", label: "Todo a pie", w: wk.w, rt: wk.rt, cx: wk.cx, side: wk.k, walk: true, walkMin: wk.rt });
+  if (wk.rt < 120) res.push({ key: "walk", label: t("Todo a pie"), w: wk.w, rt: wk.rt, cx: wk.cx, side: wk.k, walk: true, walkMin: wk.rt });
   const WA = {}, WB = {};
   for (const s in ST) { const t = toStation(Da, s); if (t && t.rt < 32) WA[s] = t;
     let bb = null; Db.forEach((D, k) => { const x = toStation(D, s); if (x && (!bb || x.w < bb.w)) bb = Object.assign({ side: k }, x); }); if (bb && bb.rt < 32) WB[s] = bb; }
@@ -124,12 +127,12 @@ export function options(a, aSide, b) {
   const pick = [];
   for (const c of combos) { if (pick.length >= 4 || c.w > best + 25) break; const lines = transitSteps(c.s, c.e).filter(x => x.k === "ride").map(x => x.color).join("+");
     if (pick.some(p => (p.s === c.s && p.lines === lines) || (p.s === c.s && p.e === c.e))) continue; c.lines = lines; pick.push(c); }
-  pick.forEach(c => { c.label = `${c.lines.split("+").map(l => LN[l]).join(" + ")} desde ${ST[c.s][0]}`; c.sub = `bajas en ${ST[c.e][0]}`; });
+  pick.forEach(c => { c.label = t("{lines} desde {s}", { lines: c.lines.split("+").map(l => t(LN[l])).join(" + "), s: ST[c.s][0] }); c.sub = t("bajas en {s}", { s: ST[c.e][0] }); });
   res = res.concat(pick);
   const wo = res.find(o => o.walk); const minRt = Math.min(...res.map(o => o.rt));
   res = res.filter(o => { if (o.walk) return o.rt <= minRt + 25 || res.length === 1; if (wo && wo.rt <= o.rt + 2 && wo.cx <= o.cx) return false; return o.rt <= minRt + 20; });
   res.sort((x, y) => x.w - y.w);
-  if (!res.length) res = [{ key: "none", label: "Sin ruta", w: 999, rt: 999, cx: 0, side: 0 }];
+  if (!res.length) res = [{ key: "none", label: t("Sin ruta"), w: 999, rt: 999, cx: 0, side: 0 }];
   res.forEach(o => { o.aSide = aSide; });
   if (!a.nocache) optCache.set(key, res); return res;
 }
@@ -140,8 +143,8 @@ export function optSteps(a, b, o) {
   const bn = destNodes(b);
   if (o.walk) return [walkStep(walkPath(Da, bn[o.side]), false, a.name, b.name)];
   const wa = toStation(Da, o.s); const Db = walkD(bn[o.side]); const wb = toStation(Db, o.e);
-  const s1 = walkStep(walkPath(Da, wa.n), false, a.name, "estación " + ST[o.s][0], wa.ent); s1.station = o.s; s1.pts.push(P(ST[o.s][1], ST[o.s][2]));
-  const s3 = walkStep(walkPath(Db, wb.n), true, "estación " + ST[o.e][0], b.name, wb.ent); s3.pts.unshift(P(ST[o.e][1], ST[o.e][2]));
+  const s1 = walkStep(walkPath(Da, wa.n), false, a.name, t("estación {s}", { s: ST[o.s][0] }), wa.ent); s1.station = o.s; s1.pts.push(P(ST[o.s][1], ST[o.s][2]));
+  const s3 = walkStep(walkPath(Db, wb.n), true, t("estación {s}", { s: ST[o.e][0] }), b.name, wb.ent); s3.pts.unshift(P(ST[o.e][1], ST[o.e][2]));
   return [s1].concat(transitSteps(o.s, o.e), [s3]);
 }
 export function sideName(s, side) {

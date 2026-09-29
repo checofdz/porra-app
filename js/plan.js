@@ -3,7 +3,6 @@ import { S } from "./state.js";
 import { SPOTS, byId, place, options, optSteps } from "./engine.js";
 import { proj, at } from "./pace.js";
 
-export function active() { return S.runners.filter(r => r.prio !== 3 || true); }
 // Main group = priority 1 (must see all at every point). Fallback: best-priority runner.
 export function groups() {
   const rs = S.runners;
@@ -42,30 +41,40 @@ let LEGS = null;
 export function invalidatePlan() { LEGS = null; }
 export function planLegs() {
   if (LEGS) return LEGS;
+  if (!S.runners.length) return (LEGS = []);
   const from = place(S.from || "start") || place("start"); let prev = from, side = 0;
   LEGS = (S.plan || []).filter(id => byId[id]).map(id => { const s = byId[id]; const l = mkLeg(prev, side, s); l.steps = optSteps(prev, s, l.o); side = l.o.side; l.arrSide = side; l.bonus = bonusAt(s, l.arrive, windowAt(s).depart); prev = s; return l; });
   return LEGS;
 }
 // Optimizer: maximize points where you see ALL priority-1 runners; tie-break by priority-2 sightings, then minimum slack.
 export function optimize() {
+  // DP over (spot, arrival sidewalk): maximize points where all main runners are seen,
+  // tie-break by "if possible" sightings, then by the smallest buffer.
   const from = place("start"); const maxs = +S.maxs;
-  const cand = SPOTS.slice();
-  const better = (x, y) => !y || x.c > y.c || (x.c === y.c && (x.v > y.v));
-  const dp = cand.map(() => Array(maxs + 1).fill(null));
+  if (!S.runners.length) return [];
+  const cand = SPOTS.slice(); const N = cand.length;
+  const better = (x, y) => !y || x.c > y.c || (x.c === y.c && x.v > y.v);
+  const dp = cand.map(() => [0, 1].map(() => Array(maxs + 1).fill(null)));
+  const W = cand.map(s => windowAt(s));
   cand.forEach((s, j) => {
-    const l = bestLeg(from, s); const Wj = windowAt(s);
-    const c1 = bonusAt(s, l.arrive, Wj.depart).filter(x => x.st === "si").length;
-    dp[j][1] = { c: c1, v: 60, p: null };
-    for (let i = 0; i < j; i++) {
-      if (cand[i].km >= s.km) continue; let ok = false; for (let c = 1; c < maxs; c++) if (dp[i][c]) { ok = true; break; } if (!ok) continue;
-      const li = bestLeg(cand[i], s); if (li.slack < 0) continue;
-      const cc = bonusAt(s, li.arrive, Wj.depart).filter(x => x.st === "si").length;
-      for (let c = 2; c <= maxs; c++) { const pr = dp[i][c - 1]; if (!pr) continue; const cand2 = { c: pr.c + cc, v: Math.min(pr.v, li.slack), p: i }; if (better(cand2, dp[j][c])) dp[j][c] = cand2; }
-    }
+    const l = mkLeg(from, 0, s, true); const side = l.o.side;
+    const c1 = bonusAt(s, l.arrive, W[j].depart).filter(x => x.st === "si").length;
+    const st = { c: c1, v: 60, p: null }; if (better(st, dp[j][side][1])) dp[j][side][1] = st;
   });
+  for (let j = 0; j < N; j++) for (let sd = 0; sd < 2; sd++) for (let c = 1; c < maxs; c++) {
+    const cur = dp[j][sd][c]; if (!cur) continue;
+    for (let k = j + 1; k < N; k++) {
+      if (cand[k].km <= cand[j].km) continue;
+      const l = mkLeg(cand[j], sd, cand[k], true); if (l.slack < 0) continue;
+      const cc = bonusAt(cand[k], l.arrive, W[k].depart).filter(x => x.st === "si").length;
+      const nx = { c: cur.c + cc, v: Math.min(cur.v, l.slack), p: [j, sd] };
+      if (better(nx, dp[k][l.o.side][c + 1])) dp[k][l.o.side][c + 1] = nx;
+    }
+  }
   for (let c = maxs; c >= 1; c--) {
-    let bj = -1, bv = null; cand.forEach((_, j) => { if (dp[j][c] && better(dp[j][c], bv)) { bv = dp[j][c]; bj = j; } });
-    if (bj >= 0) { const path = []; let j = bj, cc = c; while (j != null && cc > 0) { path.unshift(cand[j].id); j = dp[j][cc].p; cc--; } return path; }
+    let best = null, bj = -1, bs = 0;
+    for (let j = 0; j < N; j++) for (let sd = 0; sd < 2; sd++) if (dp[j][sd][c] && better(dp[j][sd][c], best)) { best = dp[j][sd][c]; bj = j; bs = sd; }
+    if (bj >= 0) { const path = []; let j = bj, sd = bs, cc = c; while (j != null && cc > 0) { path.unshift(cand[j].id); const pr = dp[j][sd][cc].p; if (!pr) break; [j, sd] = pr; cc--; } return path; }
   }
   return [];
 }

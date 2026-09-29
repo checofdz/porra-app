@@ -11,7 +11,7 @@ export const RACE = {
     web: "https://results.chicagomarathon.com/2026/"
   },
   bounds: { w: -87.683, e: -87.600, n: 41.958, s: 41.826 },
-  defaultStart: { name: "Hotel Felix", address: "111 W Huron St" }
+  defaultStart: { name: "Grant Park (salida)", nameEn: "Grant Park (start)", lat: 41.8757, lng: -87.6243, address: "Michigan Ave & Congress" }
 };
 
 export const WAVES = {
@@ -20,6 +20,22 @@ export const WAVES = {
   w2: { n: "Ola 2 (8:00)", t: 480 },
   w3: { n: "Ola 3 (8:35)", t: 515 }
 };
+
+// Corrals 2026 (A–N, no I). delay = estimated minutes from wave gun to crossing the start mat
+export const WAVE_T = { hp: 452, 1: 455, 2: 480, 3: 515 };
+export const CORRALS = {
+  HP: { wave: "hp", delay: 1, range: "High Performance" },
+  A: { wave: 1, delay: 1, range: "≤ 2:44:59" }, B: { wave: 1, delay: 3, range: "2:45–2:57" }, C: { wave: 1, delay: 6, range: "2:58–3:08" },
+  D: { wave: 1, delay: 9, range: "3:09–3:18" }, E: { wave: 1, delay: 13, range: "3:19–3:35" },
+  F: { wave: 2, delay: 2, range: "3:36–3:48" }, G: { wave: 2, delay: 6, range: "3:49–3:57" }, H: { wave: 2, delay: 11, range: "3:58–4:09" }, J: { wave: 2, delay: 16, range: "4:10–4:19" },
+  K: { wave: 3, delay: 3, range: "4:20–4:44" }, L: { wave: 3, delay: 9, range: "4:45–5:04" }, M: { wave: 3, delay: 15, range: "5:05–5:15" }, N: { wave: 3, delay: 21, range: "5:16–6:30" }
+};
+// corral suggested from goal time (minutes)
+export function corralForGoal(min) {
+  const cuts = [["A", 165], ["B", 178], ["C", 189], ["D", 199], ["E", 216], ["F", 229], ["G", 238], ["H", 250], ["J", 260], ["K", 285], ["L", 305], ["M", 316]];
+  for (const [c, m] of cuts) if (min < m) return c; return "N";
+}
+export const corralStart = c => { const k = CORRALS[c] || CORRALS.H; return WAVE_T[k.wave] + k.delay; };
 
 // Official timing mats (every 5K + half + finish)
 export const CPS = [
@@ -30,25 +46,25 @@ export const CPS = [
 ];
 
 export const SPOTM = {
-  grand: { name: "Grand y State", tip: "Primer vistazo cerca del Loop. Hay mucha gente: busca la esquina norte." },
-  lashuron: { name: "LaSalle y Huron", tip: "Tramo recto de LaSalle en River North, a pasos de la Línea Roja (Chicago/State)." },
-  lp8k: { name: "Lincoln Park · zona 8K", tip: "Zona oficial de ánimo del 8K. Bonita, pero lejos del metro." },
-  lsdadd: { name: "Inner Lake Shore Dr (Lakeview)", tip: "Tramo tranquilo con poca gente, ideal para verlos bien." },
-  broadadd: { name: "Broadway y Addison (Northalsted)", tip: "De los tramos con más ambiente (música, show)." },
-  broadbel: { name: "Broadway y Belmont", tip: "Belmont tiene Roja y Café: buena salida hacia Wells o el Loop." },
-  sednorth: { name: "Sedgwick y North Ave (Old Town)", tip: "La estación Sedgwick (Café) está en la misma esquina." },
-  wells: { name: "Wells y Huron", tip: "Si llegas en la Café a Chicago/Franklin, quédate en la banqueta oeste de Wells." },
-  half: { name: "Wacker y Washington · medio maratón", tip: "Zona de ánimo del medio maratón. Se llena: llega con minutos de sobra." },
-  adamshal: { name: "Adams y Halsted (Greektown)", tip: "A 5 cuadras de UIC-Halsted (Azul)." },
-  ashland: { name: "Adams y Ashland · Charity Block Party", tip: "Zona de fundaciones cerca del United Center, mucho ambiente." },
-  jackhal: { name: "Jackson y Halsted", tip: "A 2 cuadras de UIC-Halsted. Fácil irte al sur por Azul + Roja." },
-  taylor: { name: "Taylor y Loomis (Little Italy)", tip: "Tramo de barrio, menos gente." },
-  pilsen: { name: "Loomis y 18th (Pilsen)", tip: "Mariachis y mucho ambiente. 18th (Rosa) queda a 6 cuadras al oeste." },
-  china: { name: "Cermak y Wentworth (Chinatown)", tip: "Dragones y leones. La Roja te deja a una cuadra." },
-  m29s: { name: "Michigan y 29th · bajando", tip: "Entre 26th y 31st pasan por Michigan en ambos sentidos: te quedas y los ves bajar y luego subir." },
-  m29n: { name: "Michigan y 29th · subiendo", tip: "Mismo lugar que “bajando”: los vuelves a ver ~2.5 km después." },
-  michcer: { name: "Michigan y Cermak", tip: "A 10 min a pie de Chinatown: combina milla 21 y milla 25 casi sin moverte." },
-  m26: { name: "Michigan y Roosevelt · milla 26", tip: "Zona de ánimo de la milla 26, junto a la estación Roosevelt." }
+  grand: { name: "Grand y State", tip: "Primer vistazo cerca del Loop. Se llena: llega unos minutos antes.", en: "Grand & State", tipEn: "First look near the Loop. It fills up: arrive a few minutes early." },
+  lashuron: { name: "LaSalle y Huron", tip: "Tramo recto de LaSalle en River North, a pasos de la Línea Roja (Chicago/State).", en: "LaSalle & Huron", tipEn: "Straight stretch of LaSalle in River North, steps from the Red Line (Chicago/State)." },
+  lp8k: { name: "Lincoln Park · zona 8K", tip: "Zona oficial de ánimo del 8K. Bonita, pero lejos del metro.", en: "Lincoln Park · 8K cheer zone", tipEn: "Official 8K cheer zone. Beautiful, but far from the L." },
+  lsdadd: { name: "Inner Lake Shore Dr (Lakeview)", tip: "Tramo tranquilo con poca gente, ideal para verlos bien.", en: "Inner Lake Shore Dr (Lakeview)", tipEn: "Quiet stretch with few people, great for a clear view." },
+  broadadd: { name: "Broadway y Addison (Northalsted)", tip: "De los tramos con más ambiente (música, show).", en: "Broadway & Addison (Northalsted)", tipEn: "One of the liveliest stretches (music, show)." },
+  broadbel: { name: "Broadway y Belmont", tip: "Belmont tiene Roja y Café: buena salida hacia Wells o el Loop.", en: "Broadway & Belmont", tipEn: "Belmont has Red and Brown lines: good exit toward Wells or the Loop." },
+  sednorth: { name: "Sedgwick y North Ave (Old Town)", tip: "La estación Sedgwick (Café) está en la misma esquina.", en: "Sedgwick & North Ave (Old Town)", tipEn: "Sedgwick station (Brown) is right at the corner." },
+  wells: { name: "Wells y Huron", tip: "Si llegas en la Café a Chicago/Franklin, quédate en la banqueta oeste de Wells.", en: "Wells & Huron", tipEn: "If you arrive on the Brown Line at Chicago/Franklin, stay on the west sidewalk of Wells." },
+  half: { name: "Wacker y Washington · medio maratón", tip: "Zona de ánimo del medio maratón. Se llena: llega con minutos de sobra.", en: "Wacker & Washington · half marathon", tipEn: "Half-marathon cheer zone. It fills up: arrive with time to spare." },
+  adamshal: { name: "Adams y Halsted (Greektown)", tip: "A 5 cuadras de UIC-Halsted (Azul).", en: "Adams & Halsted (Greektown)", tipEn: "5 blocks from UIC-Halsted (Blue)." },
+  ashland: { name: "Adams y Ashland · Charity Block Party", tip: "Zona de fundaciones cerca del United Center, mucho ambiente.", en: "Adams & Ashland · Charity Block Party", tipEn: "Charity zone near the United Center, lots of energy." },
+  jackhal: { name: "Jackson y Halsted", tip: "A 2 cuadras de UIC-Halsted. Fácil irte al sur por Azul + Roja.", en: "Jackson & Halsted", tipEn: "2 blocks from UIC-Halsted. Easy to head south via Blue + Red." },
+  taylor: { name: "Taylor y Loomis (Little Italy)", tip: "Tramo de barrio, menos gente.", en: "Taylor & Loomis (Little Italy)", tipEn: "Neighborhood stretch, fewer people." },
+  pilsen: { name: "Loomis y 18th (Pilsen)", tip: "Mariachis y mucho ambiente. 18th (Rosa) queda a 6 cuadras al oeste.", en: "Loomis & 18th (Pilsen)", tipEn: "Mariachis and great energy. 18th (Pink) is 6 blocks west." },
+  china: { name: "Cermak y Wentworth (Chinatown)", tip: "Dragones y leones. La Roja te deja a una cuadra.", en: "Cermak & Wentworth (Chinatown)", tipEn: "Dragons and lion dancers. The Red Line drops you a block away." },
+  m29s: { name: "Michigan y 29th · bajando", tip: "Entre 26th y 31st pasan por Michigan en ambos sentidos: te quedas y los ves bajar y luego subir.", en: "Michigan & 29th · southbound", tipEn: "Between 26th and 31st runners use Michigan both ways: stay put and see them go and come back." },
+  m29n: { name: "Michigan y 29th · subiendo", tip: "Mismo lugar que “bajando”: los vuelves a ver ~2.5 km después.", en: "Michigan & 29th · northbound", tipEn: "Same spot as “southbound”: you see them again ~2.5 km later." },
+  michcer: { name: "Michigan y Cermak", tip: "A 10 min a pie de Chinatown: combina milla 21 y milla 25 casi sin moverte.", en: "Michigan & Cermak", tipEn: "10 min walk from Chinatown: combine mile 21 and mile 25 barely moving." },
+  m26: { name: "Michigan y Roosevelt · milla 26", tip: "Zona de ánimo de la milla 26, junto a la estación Roosevelt.", en: "Michigan & Roosevelt · mile 26", tipEn: "Mile 26 cheer zone, next to Roosevelt station." }
 };
 
 // CTA stations [name, lat, lng]
@@ -84,6 +100,14 @@ export const CTAG = {
 export const CTAC = { red: LC.red, brown: LC.brown, loop: "#8A8F98", blue: LC.blue, pink: LC.pink, green: LC.green, green2: LC.green, orange: LC.orange };
 export const VIEWS = { all: [41.958, 41.826, -87.683, -87.600], north: [41.957, 41.888, -87.662, -87.618], center: [41.900, 41.852, -87.682, -87.615], south: [41.872, 41.827, -87.672, -87.612] };
 export const RUNNER_COLORS = ["#E2552B","#7A4BD0","#0E9F6E","#D97706","#DB2777","#0891B2","#65A30D","#9333EA","#B45309","#2563EB"];
+export const FACTS_EN = [
+ "Starts: wheelchair 7:20, elite 7:30, Wave 1 7:35, Wave 2 8:00, Wave 3 8:35. Each runner crosses the mat a few minutes later depending on the corral.",
+ "Start and finish in Grant Park (Columbus Dr). The park opens to spectators at 9:30; the post-race party runs 9:30–16:00.",
+ "Official timing mats: start, every 5K, half marathon and finish. These trigger the official app notifications.",
+ "Course streets close from 6:00 and reopen after the last runner passes. You can only cross at police-staffed crossings.",
+ "The “L” runs above or below the course: it's the best way to move. Rideshare is of little use near the route.",
+ "Train times: Sunday-morning estimates (Red and Blue ~8 min, Brown and Green ~10, Pink and Orange ~12)."
+];
 export const FACTS = [
  "Salidas: silla de ruedas 7:20, élite 7:30, Ola 1 7:35, Ola 2 8:00, Ola 3 8:35. Cada corredor cruza el tapete unos minutos después según su corral.",
  "Salida y meta en Grant Park (Columbus Dr). El parque abre a espectadores a las 9:30; la fiesta post-carrera es de 9:30 a 16:00.",

@@ -1,14 +1,24 @@
 {
-  "name": "Porra · Maratón de Chicago",
-  "short_name": "Porra",
-  "description": "Dónde ver a tus corredores, cómo moverte y si vas a tiempo.",
+  "name": "Cheer Crew · Chicago Marathon",
+  "short_name": "Cheer Crew",
+  "description": "Where to cheer, how to get around and whether you're on time — Chicago Marathon 2026.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#16263F",
   "theme_color": "#16263F",
   "lang": "es",
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
