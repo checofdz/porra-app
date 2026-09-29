@@ -31,6 +31,9 @@ export function initMap(svgEl) {
   const cd = pathLL(C);
   cHalo = el("path", { d: cd, fill: "none", stroke: "var(--halo)", "stroke-width": 9, "vector-effect": "non-scaling-stroke", "stroke-linejoin": "round", "stroke-linecap": "round" });
   cLine = el("path", { d: cd, fill: "none", stroke: "var(--course)", "stroke-width": 5, "vector-effect": "non-scaling-stroke", "stroke-linejoin": "round", "stroke-linecap": "round" });
+  // wide invisible hit area: tap the course to create your own cheer spot
+  const hit = el("path", { d: cd, fill: "none", stroke: "transparent", "stroke-width": 22, "vector-effect": "non-scaling-stroke", "pointer-events": "stroke", style: "cursor:copy" });
+  hit.addEventListener("click", e => { if (mapState.pick) return; const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; const q = pt.matrixTransform(svg.getScreenCTM().inverse()); const [lat, lng] = unP(q.x, q.y); emit("coursetap", { lat, lng }); });
   gHL = el("g", {}); gO = el("g", {});
   bindPanZoom();
   svg.addEventListener("click", e => {

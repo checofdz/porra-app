@@ -14,6 +14,13 @@ export function hvm(la1, ln1, la2, ln2) { const R = 6371000, t = Math.PI / 180; 
 export let MD, C, SPOTS = [], byId = {}, START = null;
 let WG, WN, NN, off, aTo, aLen, aX, aNm, edgeFrom, isCourse, grid;
 export const WMPM = 72, CROSS_MIN = 4, AVOID_PEN = 30;
+// how fast YOU move on foot (m/min): walk 4.3, brisk 5.7, jog 8.1, run 10.2 km/h
+export const PACES = { walk: { mpm: 72, n: "Caminando" }, brisk: { mpm: 95, n: "Caminata rápida" }, jog: { mpm: 135, n: "Trotando" }, run: { mpm: 170, n: "Corriendo" } };
+export const rtAt = (o, mpm) => (o.stay ? 0 : o.fixed + (o.walkM || 0) / (mpm || WMPM));
+// minimum on-foot speed (m/min) to cover option o in `avail` minutes; Infinity if impossible
+export const neededMpm = (o, avail) => { if (o.stay) return avail >= 0 ? 0 : Infinity; const left = avail - o.fixed; if (left <= 0) return Infinity; return (o.walkM || 0) / left; };
+export const paceFor = mpm => mpm <= 72 ? "walk" : mpm <= 95 ? "brisk" : mpm <= 135 ? "jog" : mpm <= 170 ? "run" : null;
+export const kmh = mpm => (mpm * 0.06).toFixed(1);
 
 export function ptAtKm(k) { k = Math.max(0, Math.min(TOTAL, k)); for (let i = 1; i < C.length; i++) { if (k <= C[i][2]) { const f = (k - C[i - 1][2]) / ((C[i][2] - C[i - 1][2]) || 1); return [C[i - 1][0] + (C[i][0] - C[i - 1][0]) * f, C[i - 1][1] + (C[i][1] - C[i - 1][1]) * f]; } } const l = C[C.length - 1]; return [l[0], l[1]]; }
 export function streetAtKm(k) { let s = MD.segs[0][1]; for (const g of MD.segs) { if (g[0] <= k + 1e-6) s = g[1]; } return s; }
@@ -23,6 +30,7 @@ export function initEngine(md, wg) {
   MD = md; C = md.course; WG = wg; WN = wg.nodes; NN = WN.length;
   const en = lang() === "en";
   SPOTS = Object.keys(md.spots).map(id => { const v = md.spots[id]; const m = SPOTM[id]; return { id, lat: v[0], lng: v[1], km: v[2], mile: v[2] / MI, sides: wg.spots[id], name: en ? m.en : m.name, tip: en ? m.tipEn : m.tip }; }).sort((a, b) => a.km - b.km);
+  (S.custom || []).forEach(c => { const sp = makeCustom(c); if (sp) SPOTS.push(sp); }); SPOTS.sort((a, b) => a.km - b.km);
   byId = {}; SPOTS.forEach(s => (byId[s.id] = s));
   // CSR adjacency
   off = new Int32Array(NN + 1); wg.edges.forEach(e => { off[e[0] + 1]++; off[e[1] + 1]++; }); for (let i = 0; i < NN; i++) off[i + 1] += off[i];
@@ -34,6 +42,29 @@ export function initEngine(md, wg) {
   initTransit();
   setStart(S.start);
 }
+// ---------- custom cheer spots (tap on the course) ----------
+export function projectKm(lat, lng) {
+  const [x, y] = P(lat, lng); let best = null;
+  for (let i = 0; i < C.length - 1; i++) { const [ax, ay] = P(C[i][0], C[i][1]), [bx, by] = P(C[i + 1][0], C[i + 1][1]); const dx = bx - ax, dy = by - ay; const L2 = dx * dx + dy * dy || 1e-9;
+    const f = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / L2)); const qx = ax + dx * f, qy = ay + dy * f; const d = Math.hypot(qx - x, qy - y) * 10;
+    if (!best || d < best.d) best = { d, km: C[i][2] + f * (C[i + 1][2] - C[i][2]), lat: C[i][0] + f * (C[i + 1][0] - C[i][0]), lng: C[i][1] + f * (C[i + 1][1] - C[i][1]) }; }
+  return best;
+}
+function makeCustom(c) {
+  const [x, y] = P(c.lat, c.lng); let best = -1, bd = 1e18;
+  for (let i = 0; i < NN; i++) { if (!isCourse[i]) continue; const d = (WN[i][0] - x) ** 2 + (WN[i][1] - y) ** 2; if (d < bd) { bd = d; best = i; } }
+  if (best < 0) return null;
+  let partner = -1; for (let k = off[best]; k < off[best + 1]; k++) if (aX[k] >= 0 && WN[aTo[k]][0] === WN[best][0] && WN[aTo[k]][1] === WN[best][1]) { partner = aTo[k]; break; }
+  if (partner < 0) return null;
+  // side 0 = left of running direction: test a non-crossing neighbour of `best`
+  const a = ptAtKm(c.km - 0.03), b = ptAtKm(c.km + 0.03); const [ax, ay] = P(a[0], a[1]), [bx, by] = P(b[0], b[1]);
+  let left = null; for (let k = off[best]; k < off[best + 1]; k++) { if (aX[k] >= 0) continue; const v = WN[aTo[k]]; const cr = (bx - ax) * (v[1] - ay) - (by - ay) * (v[0] - ax); left = cr < 0; break; }
+  const sides = left === false ? [partner, best] : [best, partner];
+  const street = streetAtKm(c.km);
+  return { id: c.id, lat: c.lat, lng: c.lng, km: c.km, mile: c.km / MI, sides, name: (c.name || street) + " · " + t("milla") + " " + (c.km / MI).toFixed(1), tip: t("Punto propio."), custom: true };
+}
+export function addCustomSpot(c) { const sp = makeCustom(c); if (!sp) return null; SPOTS.push(sp); SPOTS.sort((a, b) => a.km - b.km); byId[sp.id] = sp; return sp; }
+export function removeCustomSpot(id) { const i = SPOTS.findIndex(s => s.id === id); if (i >= 0) SPOTS.splice(i, 1); delete byId[id]; }
 export function nearestNode(lat, lng, allowCourse) {
   const [x, y] = P(lat, lng); const cx = (x / 20) | 0, cy = (y / 20) | 0; let best = -1, bd = 1e18;
   for (let r = 0; r < 6 && best < 0; r++) { for (let gx = cx - r; gx <= cx + r; gx++) for (let gy = cy - r; gy <= cy + r; gy++) { const L = grid.get(gx + "," + gy); if (!L) continue; for (const i of L) { if (!allowCourse && isCourse[i]) continue; const d = (WN[i][0] - x) ** 2 + (WN[i][1] - y) ** 2; if (d < bd) { bd = d; best = i; } } } }
@@ -54,12 +85,12 @@ class Heap { constructor() { this.k = []; this.v = []; } push(n, w) { const k = 
 const walkCache = new Map();
 export function walkD(src, nocache) {
   const key = src + "|" + (S.avoid ? 1 : 0); if (!nocache && walkCache.has(key)) return walkCache.get(key);
-  const w = new Float32Array(NN).fill(1e9), rt = new Float32Array(NN), cx = new Uint8Array(NN), pe = new Int32Array(NN).fill(-1);
+  const w = new Float32Array(NN).fill(1e9), rt = new Float32Array(NN), dm = new Float32Array(NN), cx = new Uint8Array(NN), pe = new Int32Array(NN).fill(-1);
   const h = new Heap(); w[src] = 0; h.push(src, 0);
   while (h.size) { const u = h.pop(); const wu = w[u];
     for (let k = off[u]; k < off[u + 1]; k++) { const v = aTo[k]; let t = aLen[k] / WMPM, pen = 0; if (aX[k] >= 0) { t += CROSS_MIN; if (S.avoid) pen = AVOID_PEN; }
-      const nw = wu + t + pen; if (nw < w[v] - 1e-6) { w[v] = nw; rt[v] = rt[u] + t; cx[v] = cx[u] + (aX[k] >= 0 ? 1 : 0); pe[v] = k; h.push(v, nw); } } }
-  const D = { src, w, rt, cx, pe }; if (!nocache) { if (walkCache.size > 80) walkCache.clear(); walkCache.set(key, D); } return D;
+      const nw = wu + t + pen; if (nw < w[v] - 1e-6) { w[v] = nw; rt[v] = rt[u] + t; dm[v] = dm[u] + aLen[k]; cx[v] = cx[u] + (aX[k] >= 0 ? 1 : 0); pe[v] = k; h.push(v, nw); } } }
+  const D = { src, w, rt, dm, cx, pe }; if (!nocache) { if (walkCache.size > 80) walkCache.clear(); walkCache.set(key, D); } return D;
 }
 function walkPath(D, n) { const ks = []; let u = n, guard = 0; while (u !== D.src && D.pe[u] >= 0 && guard++ < 50000) { const k = D.pe[u]; ks.unshift(k); u = edgeFrom[k]; } return ks; }
 
@@ -79,7 +110,7 @@ function initTransit() {
       for (const e of (G[u] || [])) { const nd = du + e.c; if (nd < (dist[e.to] ?? 1e9)) { dist[e.to] = nd; prev[e.to] = [u, e]; h.push([e.to, nd]); } } }
     TT[s] = { dist, prev }; }
 }
-function toStation(D, s) { let b = null; for (const a of STA[s]) { const w = D.w[a.n] + a.min; if (!b || w < b.w) b = { w, rt: D.rt[a.n] + a.min, cx: D.cx[a.n], n: a.n, ent: a.min }; } return b; }
+function toStation(D, s) { let b = null; for (const a of STA[s]) { const w = D.w[a.n] + a.min; if (!b || w < b.w) b = { w, rt: D.rt[a.n] + a.min, dm: D.dm[a.n], cx: D.cx[a.n], n: a.n, ent: a.min }; } return b; }
 export function transitSteps(s, e) {
   const T = TT[s]; const edges = []; let u = "S|" + e; while (u !== "S|" + s) { const [p, ed] = T.prev[u]; edges.unshift(ed); u = p; }
   const steps = []; for (const ed of edges) { const m = ed.m;
@@ -94,7 +125,7 @@ export function transitSteps(s, e) {
 // ---------- walking directions ----------
 const CARD = ["este", "noreste", "norte", "noroeste", "oeste", "suroeste", "sur", "sureste"];
 const card = (dx, dy) => CARD[((Math.round(Math.atan2(-dy, dx) / (Math.PI / 4)) % 8) + 8) % 8];
-function walkStep(ks, reverse, fromName, toName, extraMin) {
+function walkStep(ks, reverse, fromName, toName, extraMin, spd) {
   let seq = ks.map(k => ({ k, u: edgeFrom[k], v: aTo[k] })); if (reverse) seq = seq.reverse().map(o => ({ k: o.k, u: o.v, v: o.u }));
   const pts = []; const dirs = []; const cross = []; let m = 0;
   seq.forEach((o, i) => { if (!i) pts.push(WN[o.u]); pts.push(WN[o.v]); m += aLen[o.k];
@@ -103,7 +134,7 @@ function walkStep(ks, reverse, fromName, toName, extraMin) {
     if (last && !last.x && last.nm === nm) { last.m += aLen[o.k]; last.b = WN[o.v]; } else dirs.push({ nm, m: aLen[o.k], a: WN[o.u], b: WN[o.v] }); });
   const out = []; dirs.forEach(d => { if (!d.x && d.m < 25 && out.length && !out[out.length - 1].x) { const l = out[out.length - 1]; l.m += d.m; l.b = d.b; } else out.push(d); });
   out.forEach(d => { if (!d.x) d.dir = card(d.b[0] - d.a[0], d.b[1] - d.a[1]); });
-  return { k: "walk", from: fromName, to: toName, m, min: m / WMPM + cross.length * CROSS_MIN + (extraMin || 0), dirs: out, x: cross, pts };
+  return { k: "walk", from: fromName, to: toName, m, min: m / (spd || WMPM) + cross.length * CROSS_MIN + (extraMin || 0), dirs: out, x: cross, pts };
 }
 // ---------- options between places ----------
 export const optCache = new Map();
@@ -115,13 +146,13 @@ export function options(a, aSide, b) {
   let res = [];
   if (a.id && b.id && a.id.startsWith("m29") && b.id.startsWith("m29")) { res = [{ key: "stay", label: t("Te quedas"), w: 0, rt: 0, cx: 0, side: aSide, stay: true, aSide }]; optCache.set(key, res); return res; }
   const Da = walkD(srcNode(a, aSide), a.nocache); const bn = destNodes(b); const Db = bn.map(n => walkD(n));
-  const wk = bn.map((n, k) => ({ k, w: Da.w[n], rt: Da.rt[n], cx: Da.cx[n] })).sort((x, y) => x.w - y.w)[0];
-  if (wk.rt < 120) res.push({ key: "walk", label: t("Todo a pie"), w: wk.w, rt: wk.rt, cx: wk.cx, side: wk.k, walk: true, walkMin: wk.rt });
+  const wk = bn.map((n, k) => ({ k, w: Da.w[n], rt: Da.rt[n], dm: Da.dm[n], cx: Da.cx[n] })).sort((x, y) => x.w - y.w)[0];
+  if (wk.rt < 120) res.push({ key: "walk", label: t("Todo a pie"), w: wk.w, rt: wk.rt, cx: wk.cx, side: wk.k, walk: true, walkMin: wk.rt, walkM: wk.dm });
   const WA = {}, WB = {};
   for (const s in ST) { const t = toStation(Da, s); if (t && t.rt < 32) WA[s] = t;
     let bb = null; Db.forEach((D, k) => { const x = toStation(D, s); if (x && (!bb || x.w < bb.w)) bb = Object.assign({ side: k }, x); }); if (bb && bb.rt < 32) WB[s] = bb; }
   const combos = []; for (const s in WA) for (const e in WB) { if (s === e) continue; const T = TT[s].dist["S|" + e]; if (T == null) continue;
-    combos.push({ key: s + ">" + e, s, e, w: WA[s].w + T + WB[e].w, rt: WA[s].rt + T + WB[e].rt, cx: WA[s].cx + WB[e].cx, side: WB[e].side, T, walkMin: WA[s].rt + WB[e].rt }); }
+    combos.push({ key: s + ">" + e, s, e, w: WA[s].w + T + WB[e].w, rt: WA[s].rt + T + WB[e].rt, cx: WA[s].cx + WB[e].cx, side: WB[e].side, T, walkMin: WA[s].rt + WB[e].rt, walkM: WA[s].dm + WB[e].dm }); }
   combos.sort((x, y) => x.w - y.w);
   const best = Math.min(combos.length ? combos[0].w : 1e9, res.length ? res[0].w : 1e9);
   const pick = [];
@@ -133,18 +164,18 @@ export function options(a, aSide, b) {
   res = res.filter(o => { if (o.walk) return o.rt <= minRt + 25 || res.length === 1; if (wo && wo.rt <= o.rt + 2 && wo.cx <= o.cx) return false; return o.rt <= minRt + 20; });
   res.sort((x, y) => x.w - y.w);
   if (!res.length) res = [{ key: "none", label: t("Sin ruta"), w: 999, rt: 999, cx: 0, side: 0 }];
-  res.forEach(o => { o.aSide = aSide; });
+  res.forEach(o => { o.aSide = aSide; o.walkM = o.walkM || 0; o.fixed = o.rt - o.walkM / WMPM; });
   if (!a.nocache) optCache.set(key, res); return res;
 }
-export function optSteps(a, b, o) {
+export function optSteps(a, b, o, spd) {
   if (o.stay) return [{ k: "stay" }];
   if (o.key === "none") return [];
   const Da = walkD(srcNode(a, o.aSide), a.nocache);
   const bn = destNodes(b);
-  if (o.walk) return [walkStep(walkPath(Da, bn[o.side]), false, a.name, b.name)];
+  if (o.walk) return [walkStep(walkPath(Da, bn[o.side]), false, a.name, b.name, 0, spd)];
   const wa = toStation(Da, o.s); const Db = walkD(bn[o.side]); const wb = toStation(Db, o.e);
-  const s1 = walkStep(walkPath(Da, wa.n), false, a.name, t("estación {s}", { s: ST[o.s][0] }), wa.ent); s1.station = o.s; s1.pts.push(P(ST[o.s][1], ST[o.s][2]));
-  const s3 = walkStep(walkPath(Db, wb.n), true, t("estación {s}", { s: ST[o.e][0] }), b.name, wb.ent); s3.pts.unshift(P(ST[o.e][1], ST[o.e][2]));
+  const s1 = walkStep(walkPath(Da, wa.n), false, a.name, t("estación {s}", { s: ST[o.s][0] }), wa.ent, spd); s1.station = o.s; s1.pts.push(P(ST[o.s][1], ST[o.s][2]));
+  const s3 = walkStep(walkPath(Db, wb.n), true, t("estación {s}", { s: ST[o.e][0] }), b.name, wb.ent, spd); s3.pts.unshift(P(ST[o.e][1], ST[o.e][2]));
   return [s1].concat(transitSteps(o.s, o.e), [s3]);
 }
 export function sideName(s, side) {

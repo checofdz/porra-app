@@ -249,3 +249,14 @@ header .clock{margin-left:0}
 @media (prefers-reduced-motion:no-preference){.alarmbox{animation:alpop .35s ease-out}@keyframes alpop{from{transform:scale(.92);opacity:.4}}}
 @media (max-width:600px){header>div:first-child{min-width:0}header .race{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10.5px}.hright{gap:6px}header .clock .sim{display:none}}
 .alname .sw{flex:none}
+/* ---- v3: pace ---- */
+.pacebox,.legpace{display:grid;gap:6px}
+.legpace{padding:10px 12px 0}
+.pseg{display:flex;width:100%}
+.pseg button{flex:1;display:grid;gap:1px;padding:7px 4px;line-height:1.1}
+.pseg button small{font:500 10.5px var(--f-mono);opacity:.75}
+.need{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 10px;border-radius:8px;background:var(--warn-bg);color:var(--warn);font-size:12.5px;margin:6px 0 0}
+.legpace + .need{margin:8px 12px 0}
+.need.bad{background:var(--bad-bg);color:var(--bad)}
+.speedline{font-size:13px;padding:8px 10px;border-radius:8px}
+.speedline.ok{background:var(--ok-bg);color:var(--ok)}.speedline.warn{background:var(--warn-bg);color:var(--warn)}

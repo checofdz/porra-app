@@ -1,12 +1,13 @@
 // Panels: live, plan, transfers, runners, settings
-import { S, save, now, emit, on, fmt, fmtPace, esc, parseHM, setSim, resetAll, newRunner } from "./state.js";
+import { S, save, now, emit, on, fmt, fmtPace, esc, parseHM, setSim, resetAll, newRunner, uid } from "./state.js";
 import { RACE, CPS, LC, LN, HW, ST, FACTS, FACTS_EN, CORRALS, corralStart, corralForGoal } from "./race-chicago.js";
-import { SPOTS, byId, place, setStart, streetAtKm, sideName, CROSS_MIN, WMPM, MI, P, clearRouteCaches } from "./engine.js";
+import { SPOTS, byId, place, setStart, streetAtKm, sideName, CROSS_MIN, WMPM, MI, P, clearRouteCaches, PACES, paceFor, kmh, removeCustomSpot, addCustomSpot, projectKm } from "./engine.js";
 import { proj, at, kmAt, invalidatePace } from "./pace.js";
-import { planLegs, invalidatePlan, optimize, groups, bestLeg } from "./plan.js";
+import { planLegs, invalidatePlan, optimize, groups, bestLeg, legKey, globalMpm } from "./plan.js";
 import { mapState, draw, showPts, startPick } from "./map.js";
 import { L, startLive, stopLive, resetLive, setPhase, markSeen, goToIdx, recordSplit, clearSplit, enableNotifications, setWake, compute, simFix, statusText, PHASES } from "./live.js";
 import { t, t2, lang, setLang } from "./i18n.js";
+import { rtAt } from "./engine.js";
 import { sharePlan } from "./share.js";
 import { openWizard } from "./onboarding.js";
 
@@ -16,7 +17,28 @@ const lchip = c => `<span class="lchip" style="background:${LC[c]}">${esc(t(LN[c
 const crossChip = n => n ? `<span class="chip warn">${esc(t2(n, "{n} cruce del recorrido", "{n} cruces del recorrido"))}</span>` : `<span class="chip ok">${esc(t("Sin cruzar"))}</span>`;
 export const PR = { 1: "Principal", 2: "Si se puede", 3: "Solo seguir" };
 function chip(sl) { if (sl == null) return ""; const v = Math.round(sl); if (v >= 5) return `<span class="chip ok">${esc(t("Holgura +{v} min", { v }))}</span>`; if (v >= 0) return `<span class="chip warn">${esc(t("Justo · +{v} min", { v }))}</span>`; return `<span class="chip bad">${esc(t("No llegas · {v} min", { v }))}</span>`; }
-function optSummary(o) { if (o.stay) return t("Te quedas en el mismo lugar"); if (o.walk) return t("Todo a pie · {m} min", { m: Math.round(o.rt) }); return t("{l} · {m} min a pie", { l: o.label, m: Math.round(o.walkMin) }); }
+function optSummary(o, mpm) { if (o.stay) return t("Te quedas en el mismo lugar"); const wm = Math.round((o.walkM || 0) / (mpm || WMPM)); if (o.walk) return t("Todo a pie · {m} min", { m: wm }); return t("{l} · {m} min a pie", { l: o.label, m: wm }); }
+const paceSeg = (cur, attr) => `<div class="seg pseg" role="group">${Object.entries(PACES).map(([k, p]) => `<button ${attr}="${k}" aria-pressed="${cur === k}">${esc(t(p.n))}<small>${kmh(p.mpm)} km/h</small></button>`).join("")}</div>`;
+function needHTML(l, i) {
+  if (!l.need || l.slack == null || l.slack >= 0) return "";
+  const n = l.need; const mode = paceFor(n.mpm);
+  if (!isFinite(n.mpm) || !mode) return `<div class="need bad">${esc(t("Ni corriendo llegas a tiempo a este punto."))}</div>`;
+  return `<div class="need"><span>${t("Para llegar necesitas moverte a <b>{v} km/h</b> ({m}) en los tramos a pie.", { v: kmh(n.mpm), m: esc(t(PACES[mode].n).toLowerCase()) })}</span><button class="btn sm" data-needpace="${i}:${mode}:${esc(n.o.key)}">${esc(t("Ir {m} en este tramo", { m: t(PACES[mode].n).toLowerCase() }))}</button></div>`;
+}
+function bindNeed(root) { root.querySelectorAll("[data-needpace]").forEach(b => b.onclick = () => { const [i, mode, ok] = b.dataset.needpace.split(":"); const l = planLegs()[+i]; const k = legKey(l.a, l.b); S.legPace[k] = mode; S.choice[k] = ok; save(); renderAll(); }); }
+// preview of adding a spot into the current plan
+function insertPreview(c) {
+  const legs = planLegs(); const ids = S.plan || [];
+  if (ids.includes(c.id)) return { inPlan: true };
+  let prev = place("start"), next = null;
+  for (const id of ids) { const x = byId[id]; if (!x) continue; if (x.km < c.km - 0.01) prev = x; else if (x.km > c.km + 0.01) { next = x; break; } }
+  const lin = bestLeg(prev, c); const lout = next ? bestLeg(c, next) : null;
+  const sl = Math.min(lin.slack == null ? 60 : lin.slack, lout ? lout.slack : 60);
+  if (sl >= 0) return { ok: true, slack: sl };
+  const needs = [lin.slack != null && lin.slack < 0 ? lin.need : null, lout && lout.slack < 0 ? lout.need : null].filter(Boolean);
+  const mp = Math.max(...needs.map(n => n.mpm)); const mode = isFinite(mp) ? paceFor(mp) : null;
+  return mode ? { need: mode, mpm: mp } : { no: true };
+}
 export function corralOptions(sel) { return Object.entries(CORRALS).map(([k, c]) => `<option value="${k}"${k === sel ? " selected" : ""}>${k === "HP" ? "High Performance" : t("Corral {c}", { c: k })} · ${c.wave === "hp" ? "7:32" : t("Ola {w}", { w: c.wave })} · ${esc(c.range)}</option>`).join(""); }
 
 // ---------- tabs ----------
@@ -79,20 +101,28 @@ export function renderPlan() {
   const sub = legs.length ? (bad ? t2(bad, "{n} traslado no alcanza.", "{n} traslados no alcanzan.") : t("Holgura mínima {v}", { v: isFinite(minSl) ? Math.round(minSl) + " min" : "—" }) + " · " + (cross ? t2(cross, "{n} cruce", "{n} cruces") : t("sin cruzar el recorrido"))) + (G.bonus.length ? " · " + t2(bonusSeen, "{n} vista extra de “si se puede”", "{n} vistas extra de “si se puede”") : "") : t("Agrega puntos desde el mapa o usa Sugerir ruta.");
   let h = `<div class="summary"><span class="big">${legs.length}</span><div><b>${esc(t2(legs.length, "punto para ver a {w}", "puntos para ver a {w}", { w: G.main.map(r => r.name).join(" · ") }))}</b><div class="small">${esc(sub)}</div></div></div>
   <div class="btnrow"><button class="btn primary" id="opt">${esc(t("Sugerir ruta"))}</button><button class="btn" id="share1">${esc(t("Compartir con mi porra"))}</button><button class="btn" id="goTr">${esc(t("Ver traslados"))}</button><button class="btn" id="clr">${esc(t("Vaciar plan"))}</button></div>
+  <div class="pacebox"><span class="small">${esc(t("Me muevo a pie:"))}</span>${paceSeg(S.pace || "walk", "data-gpace")}</div>
   <p class="note">${t("La ruta se arma para ver a los corredores <b>principales</b> en cada punto (hasta {n} puntos). Los de <b>“si se puede”</b> suman cuando pasan mientras estás ahí; los de <b>“solo seguir”</b> solo aparecen en el mapa y en vivo.", { n: S.maxs })}</p><div>`;
   h += `<div class="stop"><div class="num home">★</div><div class="body"><div class="ttl"><b>${esc(from.name)}</b><button class="linkbtn" id="chStart">${esc(t("Cambiar"))}</button></div><div class="small">${esc(from.address || t("Punto de salida"))}</div></div></div>`;
   legs.forEach((l, i) => { const s = l.b;
-    h += `<div class="stop"><div class="rail"></div><div class="leg"><div class="row"><b>→ ${Math.round(l.rt)} min · ${esc(optSummary(l.o))}</b>${l.first ? `<span class="chip ok">${esc(t("Sal a las {h}", { h: fmt(l.depart) }))}</span>` : chip(l.slack)}</div>${l.first ? "" : `<div class="small">${esc(t("Te vas {a} · llegas {b} · primero pasa {c}", { a: fmt(l.depart), b: fmt(l.arrive), c: fmt(l.earliest) }))}</div>`}<div class="row">${l.o.stay ? "" : crossChip(l.o.cx)}<button class="linkbtn" data-leg="${i}">${esc(l.opts.length > 1 ? t("Ver {n} opciones →", { n: l.opts.length }) : t("Ver traslado →"))}</button></div>${altHTML(i)}</div></div>`;
+    h += `<div class="stop"><div class="rail"></div><div class="leg"><div class="row"><b>→ ${Math.round(l.rt)} min · ${esc(optSummary(l.o, l.mpm))}</b>${l.first ? `<span class="chip ok">${esc(t("Sal a las {h}", { h: fmt(l.depart) }))}</span>` : chip(l.slack)}</div>${l.first ? "" : `<div class="small">${esc(t("Te vas {a} · llegas {b} · primero pasa {c}", { a: fmt(l.depart), b: fmt(l.arrive), c: fmt(l.earliest) }))}</div>`}<div class="row">${l.o.stay ? "" : crossChip(l.o.cx)}<button class="linkbtn" data-leg="${i}">${esc(l.opts.length > 1 ? t("Ver {n} opciones →", { n: l.opts.length }) : t("Ver traslado →"))}</button></div>${l.mpm !== globalMpm() ? `<div class="small">${esc(t("En este tramo: {m}", { m: t(PACES[paceFor(l.mpm)].n).toLowerCase() }))} · <button class="linkbtn" data-resetpace="${i}">${esc(t("volver a mi ritmo"))}</button></div>` : ""}${needHTML(l, i)}${altHTML(i)}</div></div>`;
     const bon = l.bonus.map(b => `<span class="chip ${b.st === "si" ? "ok" : b.st === "quizas" ? "warn" : ""}" style="${b.st === "no" ? "background:var(--chip);color:var(--muted)" : ""}"><span class="dot" style="background:${b.r.color}"></span>${esc(b.r.name)}: ${esc(b.st === "si" ? t("lo ves") : b.st === "quizas" ? t("quizás (+{m} min)", { m: b.wait }) : t("no coincide"))}</span>`).join(" ");
     h += `<div class="stop"><div class="num">${i + 1}</div><div class="body"><div class="ttl"><div><b>${esc(s.name)}</b><div class="mile">${esc(t("Milla"))} ${s.mile.toFixed(1)} · km ${s.km.toFixed(1)} · ${esc(streetAtKm(s.km))}</div></div><button class="x" data-rm="${s.id}" aria-label="${esc(t("Quitar"))} ${esc(s.name)}">×</button></div><div class="times">${runnerTimes(s, G.main)}</div>${bon ? `<div class="btnrow" style="gap:4px">${bon}</div>` : ""}<div class="small">${t("Párate en la banqueta <b>{d}</b> de {s}.", { d: t(sideName(s, l.arrSide)), s: esc(streetAtKm(s.km)) })}</div><div class="tip">${esc(s.tip)}</div></div></div>`; });
   h += `<div class="stop"><div class="rail"></div><div class="leg"><div><b>${esc(t("Reencuentro:"))}</b> ${esc(t("camina por Roosevelt/Michigan a Grant Park (abre 9:30). Pónganse de acuerdo en un punto antes de la carrera."))}</div></div></div></div>`;
-  h += `<details class="box"><summary>${esc(t("Todos los puntos ({n})", { n: SPOTS.length }))}</summary><div class="spotlist" style="margin-top:10px">${SPOTS.map(s => { const sel = S.plan.includes(s.id); return `<div class="spot${sel ? " sel" : ""}"><div class="top"><div><b>${esc(s.name)}</b><div class="mile">${esc(t("Milla"))} ${s.mile.toFixed(1)} · ${esc(streetAtKm(s.km))}</div></div><button class="btn sm" data-tg="${s.id}">${esc(sel ? t("Quitar") : t("Agregar"))}</button></div><div class="times">${runnerTimes(s, G.main)}</div><div class="tip">${esc(s.tip)}</div></div>`; }).join("")}</div></details>`;
+  h += `<details class="box" id="allspots"${S.openSpots ? " open" : ""}><summary>${esc(t("Agregar o quitar puntos ({n})", { n: SPOTS.length }))}</summary><p class="note" style="margin:8px 0 0">${esc(t("Cada punto dice si cabe en tu plan con tu ritmo actual. También puedes tocar la ruta en el mapa para crear tu propio punto."))}</p><div class="spotlist" style="margin-top:10px">${SPOTS.map(s => { const sel = S.plan.includes(s.id); const pv = insertPreview(s);
+      const badge = pv.inPlan ? `<span class="chip ok">${esc(t("En tu plan"))}</span>` : pv.ok ? `<span class="chip ok">${esc(t("Cabe · +{v} min", { v: Math.round(pv.slack) }))}</span>` : pv.need ? `<span class="chip warn">${esc(t("Cabe si vas {m} ({v} km/h)", { m: t(PACES[pv.need].n).toLowerCase(), v: kmh(pv.mpm) }))}</span>` : `<span class="chip bad">${esc(t("No cabe"))}</span>`;
+      return `<div class="spot${sel ? " sel" : ""}"><div class="top"><div><b>${esc(s.name)}</b><div class="mile">${esc(t("Milla"))} ${s.mile.toFixed(1)} · ${esc(streetAtKm(s.km))}</div></div><button class="btn sm" data-tg="${s.id}">${esc(sel ? t("Quitar") : t("Agregar"))}</button></div><div class="btnrow" style="gap:6px;align-items:center">${badge}${s.custom ? `<button class="linkbtn" data-delc="${s.id}">${esc(t("Borrar punto propio"))}</button>` : ""}</div><div class="times">${runnerTimes(s, G.main)}</div><div class="tip">${esc(s.tip)}</div></div>`; }).join("")}</div></details>`;
   $("pane-plan").innerHTML = h;
   $("opt").onclick = () => { S.plan = optimize(); S.choice = {}; save(); renderAll(); };
   $("clr").onclick = () => { S.plan = []; save(); renderAll(); };
   $("goTr").onclick = () => openTab("tr");
   $("share1").onclick = () => sharePlan();
   $("chStart").onclick = () => openTab("set");
+  $("allspots").ontoggle = e => { S.openSpots = e.target.open; save(); };
+  $("pane-plan").querySelectorAll("[data-gpace]").forEach(b => b.onclick = () => { S.pace = b.dataset.gpace; save(); renderAll(); });
+  $("pane-plan").querySelectorAll("[data-resetpace]").forEach(b => b.onclick = () => { const l = planLegs()[+b.dataset.resetpace]; delete S.legPace[legKey(l.a, l.b)]; save(); renderAll(); });
+  $("pane-plan").querySelectorAll("[data-delc]").forEach(b => b.onclick = () => { const id = b.dataset.delc; S.custom = S.custom.filter(c => c.id !== id); S.plan = S.plan.filter(x => x !== id); removeCustomSpot(id); save(); renderAll(); });
+  bindNeed($("pane-plan"));
   bindSwap($("pane-plan"));
   $("pane-plan").querySelectorAll("[data-rm],[data-tg]").forEach(b => b.onclick = () => toggleSpot(b.dataset.rm || b.dataset.tg));
   $("pane-plan").querySelectorAll("[data-leg]").forEach(b => b.onclick = () => { openTab("tr"); showLeg(+b.dataset.leg); });
@@ -120,16 +150,18 @@ export function renderTransfers() {
   <p class="note">${esc(t("Las caminatas siguen las calles reales y el recorrido cuenta como barrera: cada cruce suma {m} min. El metro pasa por arriba o por abajo. Elige la opción que prefieras en cada traslado y el plan se recalcula.", { m: CROSS_MIN }))}</p>`;
   if (!legs.length) { $("pane-tr").innerHTML = h + `<p class="note">${esc(t("Aún no tienes puntos en tu plan."))}</p>`; $("avoid").onchange = onAvoid; return; }
   h += `<div class="btnrow"><button class="btn primary" id="allmap">${esc(t("Ver todos en el mapa"))}</button></div>`;
-  legs.forEach((l, i) => { const key = l.a.id + ">" + l.b.id; const fastest = Math.min(...l.opts.map(o => o.rt));
-    h += `<div class="tcard" id="leg${i}"><div class="thead"><div class="pair">${l.first ? `<span class="num home">★</span>` : `<span class="num">${i}</span>`}→<span class="num">${i + 1}</span></div><div class="grow"><b>${esc(l.a.name)} → ${esc(l.b.name)}</b><div class="small">${esc(optSummary(l.o))}</div></div>${l.first ? `<span class="chip ok">${esc(t("Sal a las {h}", { h: fmt(l.depart) }))}</span>` : chip(l.slack)}</div>`;
-    if (l.opts.length > 1) h += `<fieldset class="opts"><legend class="small">${esc(t("Opciones ({n})", { n: l.opts.length }))}</legend>` + l.opts.map((o, j) => { const sel = o.key === l.o.key; const tags = []; if (Math.abs(o.rt - fastest) < 0.5) tags.push(`<span class="chip ok">${esc(t("Más rápida"))}</span>`); if (j === 0 && !tags.length) tags.push(`<span class="chip ok">${esc(t("Recomendada"))}</span>`);
-        const slack = l.first ? null : l.earliest - (l.depart + o.rt + (+S.buf));
-        return `<label class="opt${sel ? " sel" : ""}" for="o${i}_${j}"><input type="radio" id="o${i}_${j}" name="leg${i}" value="${esc(o.key)}" data-key="${esc(key)}"${sel ? " checked" : ""}><div class="ob"><div class="orow"><b>${esc(o.walk ? t("Todo a pie") : o.label)}</b><span class="omin">${Math.round(o.rt)} min</span></div><div class="orow small"><span>${o.walk ? `${(o.rt * WMPM / 1000).toFixed(1)} km` : esc(o.sub) + " · " + esc(t("{m} min a pie", { m: Math.round(o.walkMin) }))}</span><span class="ochips">${crossChip(o.cx)}${tags.join("")}${slack != null && slack < 0 ? `<span class="chip bad">${esc(t("No llegas"))}</span>` : ""}</span></div></div></label>`; }).join("") + `</fieldset>`;
+  legs.forEach((l, i) => { const key = l.a.id + ">" + l.b.id; const fastest = Math.min(...l.opts.map(o => rtAt(o, l.mpm)));
+    h += `<div class="tcard" id="leg${i}"><div class="thead"><div class="pair">${l.first ? `<span class="num home">★</span>` : `<span class="num">${i}</span>`}→<span class="num">${i + 1}</span></div><div class="grow"><b>${esc(l.a.name)} → ${esc(l.b.name)}</b><div class="small">${esc(optSummary(l.o, l.mpm))}</div></div>${l.first ? `<span class="chip ok">${esc(t("Sal a las {h}", { h: fmt(l.depart) }))}</span>` : chip(l.slack)}</div>`;
+    if (l.opts.length > 1) h += `<fieldset class="opts"><legend class="small">${esc(t("Opciones ({n})", { n: l.opts.length }))}</legend>` + l.opts.map((o, j) => { const sel = o.key === l.o.key; const tags = []; if (Math.abs(rtAt(o, l.mpm) - fastest) < 0.5) tags.push(`<span class="chip ok">${esc(t("Más rápida"))}</span>`); if (j === 0 && !tags.length) tags.push(`<span class="chip ok">${esc(t("Recomendada"))}</span>`);
+        const slack = l.first ? null : l.earliest - (l.depart + rtAt(o, l.mpm) + (+S.buf));
+        return `<label class="opt${sel ? " sel" : ""}" for="o${i}_${j}"><input type="radio" id="o${i}_${j}" name="leg${i}" value="${esc(o.key)}" data-key="${esc(key)}"${sel ? " checked" : ""}><div class="ob"><div class="orow"><b>${esc(o.walk ? t("Todo a pie") : o.label)}</b><span class="omin">${Math.round(rtAt(o, l.mpm))} min</span></div><div class="orow small"><span>${o.walk ? `${((o.walkM || 0) / 1000).toFixed(1)} km` : esc(o.sub) + " · " + esc(t("{m} min a pie", { m: Math.round((o.walkM || 0) / l.mpm) }))}</span><span class="ochips">${crossChip(o.cx)}${tags.join("")}${slack != null && slack < 0 ? `<span class="chip bad">${esc(t("No llegas"))}</span>` : ""}</span></div></div></label>`; }).join("") + `</fieldset>`;
+    h += `<div class="legpace"><span class="small">${esc(t("En este tramo me muevo:"))}</span>${paceSeg(paceFor(l.mpm) || "walk", `data-lp="${i}" data-lpk`)}</div>${needHTML(l, i)}`;
     h += `<div class="tsum"><div><span>${esc(t("Sales"))}</span><b>${fmt(l.depart)}</b></div><div><span>${esc(t("Llegas"))}</span><b>${fmt(l.arrive)}</b></div><div><span>${esc(t("Pasa el 1º"))}</span><b>${fmt(l.earliest)}</b></div></div>`;
     h += stepsHTML(l.steps, l.depart, `<b>${esc(t("Sales de {s}", { s: l.a.name }))}</b><span class="s">${esc(l.first ? t("Hora sugerida para llegar con {m} min de margen.", { m: S.buf }) : t("Desde la banqueta {d}, después de verlos pasar (+{m} min).", { d: t(sideName(l.a, l.aSide)), m: S.linger }))}</span>`, `<b>${esc(t("Llegas a {s}", { s: l.b.name }))}</b><span class="s">${esc(t("Banqueta {d} de {s}. El primero pasa a las {h}.", { d: t(sideName(l.b, l.o.side)), s: streetAtKm(l.b.km), h: fmt(l.earliest) }))}</span>`, l.arrive);
     h += altHTML(i).replace('style="margin:0"', "") + `<div class="tfoot"><button class="btn sm" data-show="${i}">${esc(t("Ver en el mapa"))}</button></div></div>`; });
   $("pane-tr").innerHTML = h;
-  $("avoid").onchange = onAvoid; bindSwap($("pane-tr"));
+  $("avoid").onchange = onAvoid; bindSwap($("pane-tr")); bindNeed($("pane-tr"));
+  $("pane-tr").querySelectorAll("[data-lpk]").forEach(b => b.onclick = () => { const i = +b.dataset.lp; const l = planLegs()[i]; S.legPace[legKey(l.a, l.b)] = b.dataset.lpk; save(); renderAll(true); showLeg(i, true); });
   $("allmap").onclick = () => showSteps(() => planLegs().flatMap(l => l.steps), t("Todos los traslados del plan"));
   $("pane-tr").querySelectorAll("[data-show]").forEach(b => b.onclick = () => showLeg(+b.dataset.show));
   $("pane-tr").querySelectorAll("input[type=radio]").forEach(r => r.onchange = () => { S.choice[r.dataset.key] = r.value; save(); const i = +r.name.slice(3); renderAll(true); showLeg(i, true); });
@@ -194,6 +226,7 @@ export function renderLive() {
     <div class="bigslack ${cls}">${c.mode === "arrived" ? "✓" : sgn(c.slack)}<small>${esc(c.mode === "arrived" ? t("en el punto") : t("min de holgura"))}</small></div></div>
     <div class="stat"><div><span>${esc(S.live.phase === "pre" ? t("Sal a más tardar") : t("Llegas"))}</span><b>${S.live.phase === "pre" ? fmt(c.leaveBy) : fmt(c.arrive)}</b></div><div><span>${esc(t("Pasa el 1º"))}</span><b>${fmt(c.W.earliest)}</b></div><div><span>${esc(t("vs. plan"))}</span><b>${c.mode === "plan" ? "—" : (c.delay > 0 ? "+" : "") + Math.round(c.delay) + " min"}</b></div></div>
     ${instr ? `<div class="instr">${instr}</div>` : ""}
+    ${c.speed ? `<div class="speedline ${c.speed.need > c.speed.cur * 1.1 ? "warn" : "ok"}">${t("Tu ritmo <b>{a} km/h</b> · necesitas <b>{b}</b>", { a: kmh(c.speed.cur), b: isFinite(c.speed.need) ? kmh(c.speed.need) + " km/h" : t("imposible a pie") })}${isFinite(c.speed.need) && paceFor(c.speed.need) ? " (" + esc(t(PACES[paceFor(c.speed.need)].n).toLowerCase()) + ")" : ""}</div>` : ""}
     <div class="gpsline">${gps}<span>· ${esc(t(PHASES[S.live.phase]))}</span>${c.ride ? `<span>· ${esc(t("En Línea {l}", { l: c.ride.line }))}</span>` : c.route && c.route.o ? `<span>· ${esc(optSummary(c.route.o))}</span>` : ""}</div>
     <div class="phase">${Object.entries(PHASES).map(([k, v]) => `<button data-ph="${k}" aria-pressed="${S.live.phase === k}">${esc(t(v))}</button>`).join("")}</div>
     <div class="btnrow"><button class="btn primary" id="seen">${esc(t("Ya los vi → siguiente"))}</button><button class="btn" id="showRoute">${esc(t("Ver ruta en mapa"))}</button><button class="btn" id="share">${esc(t("Compartir estado"))}</button></div></div>`;
@@ -281,3 +314,22 @@ $("scrub").addEventListener("input", () => { S.scrub = +$("scrub").value; mapSta
 
 // ---------- toasts ----------
 on("toast", ({ msg, level }) => { const d = document.createElement("div"); d.className = "toast " + (level || ""); d.textContent = msg; $("toasts").prepend(d); setTimeout(() => d.remove(), level === "late" ? 12000 : 7000); while ($("toasts").children.length > 1) $("toasts").lastChild.remove(); });
+
+// ---------- custom spot from a tap on the course ----------
+on("coursetap", ({ lat, lng }) => {
+  const pr = projectKm(lat, lng); if (!pr || pr.d > 120) return;
+  const street = streetAtKm(pr.km); const sheet = $("sheet");
+  sheet.innerHTML = `<div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="csT"><h2 id="csT">${esc(t("Crear punto propio"))}</h2>
+    <p class="note">${esc(t("{s} · milla {m} (km {k})", { s: street, m: (pr.km / MI).toFixed(1), k: pr.km.toFixed(1) }))}</p>
+    <label>${esc(t("Nombre (opcional)"))}<input type="text" id="csName" placeholder="${esc(street)}"></label>
+    <div class="times">${S.runners.filter(r => r.prio !== 3).map(r => { const o = proj(r); return `<span><span class="dot" style="background:${r.color}"></span>${esc(r.name)} ${fmt(at(o, pr.km, "fast"))}</span>`; }).join("")}</div>
+    <div class="btnrow"><button class="btn primary" id="csAdd">${esc(t("Agregar a mi plan"))}</button><button class="btn" id="csNo">${esc(t("Cancelar"))}</button></div></div>`;
+  sheet.hidden = false;
+  $("csNo").onclick = () => { sheet.hidden = true; };
+  $("csAdd").onclick = () => {
+    const c = { id: "c" + uid(), lat: pr.lat, lng: pr.lng, km: pr.km, name: $("csName").value.trim() };
+    const sp = addCustomSpot(c); sheet.hidden = true; if (!sp) { emit("toast", { msg: t("No se pudo crear el punto aquí."), level: "tight" }); return; }
+    S.custom = (S.custom || []).concat([c]); S.plan = (S.plan || []).concat([sp.id]).sort((x, y) => byId[x].km - byId[y].km); save(); renderAll(); openTab("plan");
+    emit("toast", { msg: t("Punto agregado: {s}", { s: sp.name }), level: "ok" });
+  };
+});

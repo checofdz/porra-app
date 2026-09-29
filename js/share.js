@@ -1,7 +1,7 @@
 // Share the whole porra setup (start point, runners, plan, chosen transfers) as a link — no server needed
 import { S, save, emit, esc } from "./state.js";
 import { t } from "./i18n.js";
-import { setStart, place } from "./engine.js";
+import { setStart, addCustomSpot, removeCustomSpot } from "./engine.js";
 
 const b64u = {
   enc: s => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""),
@@ -9,7 +9,7 @@ const b64u = {
 };
 export function encodePlan() {
   const st = S.start ? [S.start.name, +S.start.lat.toFixed(5), +S.start.lng.toFixed(5), S.start.address || ""] : null;
-  const data = { v: 1, s: st, r: S.runners.map(r => [r.name, r.bib || "", r.corral, r.goal, r.prio, r.color]), p: S.plan || [], c: S.choice || {} };
+  const data = { v: 1, s: st, r: S.runners.map(r => [r.name, r.bib || "", r.corral, r.goal, r.prio, r.color]), p: S.plan || [], c: S.choice || {}, x: (S.custom || []).map(c => [c.id, +c.lat.toFixed(5), +c.lng.toFixed(5), +c.km.toFixed(3), c.name || ""]), g: S.pace || "walk", lp: S.legPace || {} };
   return b64u.enc(JSON.stringify(data));
 }
 export function shareURL() { return location.origin + location.pathname + "#plan=" + encodePlan(); }
@@ -42,7 +42,8 @@ export function checkImport(onDone) {
   document.getElementById("imOk").onclick = () => {
     S.runners = d.r.map((r, i) => ({ id: Math.random().toString(36).slice(2, 9), name: r[0], bib: r[1], corral: r[2], goal: r[3], prio: r[4], color: r[5], splits: {} }));
     S.start = d.s ? { name: d.s[0], lat: d.s[1], lng: d.s[2], address: d.s[3] } : null; setStart(S.start);
-    S.plan = d.p; S.choice = d.c || {}; S.onboarded = true; save();
+    (S.custom || []).forEach(c => removeCustomSpot(c.id)); S.custom = (d.x || []).map(c => ({ id: c[0], lat: c[1], lng: c[2], km: c[3], name: c[4] })); S.custom.forEach(c => addCustomSpot(c));
+    S.plan = d.p; S.choice = d.c || {}; S.pace = d.g || "walk"; S.legPace = d.lp || {}; S.onboarded = true; save();
     sheet.hidden = true; emit("toast", { msg: t("Plan cargado."), level: "ok" }); onDone(true);
   };
   return true;

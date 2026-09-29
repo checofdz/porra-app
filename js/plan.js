@@ -1,6 +1,6 @@
 // Plan: priority groups, spot windows, legs and the optimizer
 import { S } from "./state.js";
-import { SPOTS, byId, place, options, optSteps } from "./engine.js";
+import { SPOTS, byId, place, options, optSteps, PACES, rtAt, neededMpm, AVOID_PEN } from "./engine.js";
 import { proj, at } from "./pace.js";
 
 // Main group = priority 1 (must see all at every point). Fallback: best-priority runner.
@@ -26,16 +26,28 @@ export function bonusAt(spot, youArrive, depart) {
     return { r, f, s, st, wait: Math.max(0, Math.round(s - depart)) }; });
 }
 function chooseOpt(opts, a, b) { const want = S.choice[a.id + ">" + b.id]; return (want && opts.find(o => o.key === want)) || opts[0]; }
+export const legKey = (a, b) => a.id + ">" + b.id;
+export const globalMpm = () => (PACES[S.pace] || PACES.walk).mpm;
+export function legMpm(a, b) { const k = (S.legPace || {})[legKey(a, b)] || S.pace || "walk"; return (PACES[k] || PACES.walk).mpm; }
 export function mkLeg(a, aSide, b, forceBest) {
-  const opts = options(a, aSide, b); const o = forceBest ? opts[0] : chooseOpt(opts, a, b);
-  const W = windowAt(b);
-  if (!a.km && a.km !== 0 || a.id === "start") { const depart = W.earliest - o.rt - (+S.buf); return { a, b, aSide, opts, o, rt: o.rt, depart, arrive: depart + o.rt, earliest: W.earliest, W, slack: null, first: true }; }
-  const Wa = windowAt(a); const depart = Wa.depart;
-  return { a, b, aSide, opts, o, rt: o.rt, depart, arrive: depart + o.rt, earliest: W.earliest, W, slack: W.earliest - (depart + o.rt + (+S.buf)) };
+  const opts = options(a, aSide, b);
+  const mpm = forceBest ? globalMpm() : legMpm(a, b);
+  const score = o => rtAt(o, mpm) + (S.avoid ? (o.cx || 0) * AVOID_PEN : 0);
+  const o = forceBest ? opts.reduce((x, y) => (score(y) < score(x) ? y : x)) : chooseOpt(opts, a, b);
+  const rt = rtAt(o, mpm); const W = windowAt(b);
+  const first = a.km == null;
+  const depart = first ? W.earliest - rt - (+S.buf) : windowAt(a).depart;
+  const leg = { a, b, aSide, opts, o, rt, mpm, depart, arrive: depart + rt, earliest: W.earliest, W, slack: first ? null : W.earliest - (depart + rt + (+S.buf)), first };
+  if (!first) { // minimum on-foot speed that still makes it (best option for that)
+    const avail = W.earliest - (+S.buf) - depart; let best = null;
+    for (const x of opts) { const n = neededMpm(x, avail); if (!best || n < best.mpm) best = { mpm: n, o: x }; }
+    leg.need = best;
+  }
+  return leg;
 }
 export function bestLeg(a, b) {
   if (!a.sides) return mkLeg(a, 0, b, true);
-  const l0 = mkLeg(a, 0, b, true), l1 = mkLeg(a, 1, b, true); return l0.o.w <= l1.o.w ? l0 : l1;
+  const l0 = mkLeg(a, 0, b, true), l1 = mkLeg(a, 1, b, true); return (l0.slack ?? 0) >= (l1.slack ?? 0) ? l0 : l1;
 }
 let LEGS = null;
 export function invalidatePlan() { LEGS = null; }
@@ -43,7 +55,7 @@ export function planLegs() {
   if (LEGS) return LEGS;
   if (!S.runners.length) return (LEGS = []);
   const from = place(S.from || "start") || place("start"); let prev = from, side = 0;
-  LEGS = (S.plan || []).filter(id => byId[id]).map(id => { const s = byId[id]; const l = mkLeg(prev, side, s); l.steps = optSteps(prev, s, l.o); side = l.o.side; l.arrSide = side; l.bonus = bonusAt(s, l.arrive, windowAt(s).depart); prev = s; return l; });
+  LEGS = (S.plan || []).filter(id => byId[id]).map(id => { const s = byId[id]; const l = mkLeg(prev, side, s); l.steps = optSteps(prev, s, l.o, l.mpm); side = l.o.side; l.arrSide = side; l.bonus = bonusAt(s, l.arrive, windowAt(s).depart); prev = s; return l; });
   return LEGS;
 }
 // Optimizer: maximize points where you see ALL priority-1 runners; tie-break by priority-2 sightings, then minimum slack.

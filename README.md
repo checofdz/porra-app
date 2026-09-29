@@ -13,6 +13,9 @@ Live: https://cheer.elevatesports.group
 - **En vivo**: GPS del teléfono → tiempo real al siguiente punto, holgura real vs. la hora en que pasa el primero, paradas que faltan en el metro, detección de atraso y alternativas si ya no llegas.
 - **Avisos**: sal ya, vas justo / no llegas, faltan N paradas, bájate, tu corredor llega en ~5 min, ¿ya pasó el 15K?, split registrado con nuevo ritmo.
 - **Bienvenida guiada** (hotel → corredores con corral → plan), **español / inglés**, **compartir plan por link** y **alarma** con cuenta regresiva cuando llega tu corredor.
+- **Tu ritmo como variable**: caminando / caminata rápida / trotando / corriendo, global o por traslado. Cada traslado que no alcanza te dice la velocidad mínima necesaria.
+- **Juega con los puntos**: cada punto muestra si cabe, si cabe trotando o si no cabe; toca la ruta en el mapa para crear tu propio punto.
+- **En vivo**: tu velocidad por GPS vs. la necesaria, con aviso para acelerar; compartir estado incluye tu ubicación.
 - **Simulación** de día de carrera (reloj acelerado + ubicación simulada) para probar antes del 11 de octubre.
 - Funciona sin señal después de abrirla una vez (service worker).
 

@@ -1,7 +1,7 @@
 // Live race-day assistant: GPS, ETA to next point, real-time slack, transit progress, alerts & notifications
 import { S, save, now, emit, fmt, fmtPace } from "./state.js";
 import { HW, LN, ST, CPS } from "./race-chicago.js";
-import { place, gpsPlace, options, optSteps, hvm, SPOTS, byId, P } from "./engine.js";
+import { place, gpsPlace, options, optSteps, hvm, SPOTS, byId, P, rtAt, neededMpm, paceFor, kmh, PACES, AVOID_PEN } from "./engine.js";
 import { planLegs, windowAt, groups, invalidatePlan } from "./plan.js";
 import { proj, at, kmAt, overdue, invalidatePace, firstMissingCP } from "./pace.js";
 import { mapState } from "./map.js";
@@ -92,10 +92,11 @@ export function compute(force) {
   if (eta == null) {
     if (L.gps) {
       if (force || !L.route || Date.now() - L.routeAt > 20000 || L.route.fix !== L.gps) {
-        const gp = gpsPlace(L.gps.lat, L.gps.lng); const opts = options(gp, 0, target); const o = opts[0];
-        L.route = { o, steps: optSteps(gp, target, o), fix: L.gps, opts }; L.routeAt = Date.now();
+        const gp = gpsPlace(L.gps.lat, L.gps.lng); const opts = options(gp, 0, target);
+        const sc = o => rtAt(o, leg.mpm) + (S.avoid ? (o.cx || 0) * AVOID_PEN : 0); const o = opts.reduce((x, y) => (sc(y) < sc(x) ? y : x));
+        L.route = { o, steps: optSteps(gp, target, o, leg.mpm), fix: L.gps, opts }; L.routeAt = Date.now();
       }
-      route = L.route; eta = route.o.rt; mode = "gps";
+      route = L.route; eta = rtAt(route.o, leg.mpm); mode = "gps";
       if (onboard) { // already on a train: drop the walk-to-station and platform wait
         const st = route.steps; if (st[0] && st[0].k === "walk" && st[0].min < 4 && st[1] && st[1].k === "wait") { eta -= st[0].min + st[1].min; mode = "ride"; }
       }
@@ -117,7 +118,14 @@ export function compute(force) {
   // alternatives if late/tight
   let alts = [];
   if (band !== "ok" && mode !== "arrived") alts = alternatives(t, target);
-  L.calc = { t, leg, target, W, eta, arrive, slack, leaveBy, delay, band, mode, route, ride, runners, alts };
+  // your on-foot speed vs. the speed you need to make it (walking legs only)
+  let speed = null;
+  if (L.gps && mode === "gps" && route && route.o && !route.o.stay && S.live.phase !== "pre") {
+    const recent = L.fixes.slice(-5).filter(f => f.speed != null && f.speed >= 0 && f.speed < 6);
+    const cur = recent.length ? recent.reduce((a, f) => a + f.speed, 0) / recent.length * 60 : 0; // m/min
+    speed = { cur, need: neededMpm(route.o, W.earliest - t) };
+  }
+  L.calc = { t, leg, target, W, eta, arrive, slack, leaveBy, delay, band, mode, route, ride, runners, alts, speed };
   rules(L.calc); emit("live");
 }
 function alternatives(t, target) {
@@ -154,6 +162,9 @@ function rules(c) {
   rulesRest(c, i, name, true);
 }
 function rulesRest(c, i, name, stable) {
+  if (c.speed && isFinite(c.speed.need) && c.speed.need > 72 && c.speed.need > c.speed.cur * 1.15) {
+    const m = paceFor(c.speed.need); if (m) notify("speed:" + i + ":" + m, t("Acelera"), t("Necesitas {v} km/h ({m}) para llegar a {s}. Vas a {c} km/h.", { v: kmh(c.speed.need), m: t(PACES[m].n).toLowerCase(), s: name, c: kmh(c.speed.cur) }), 2);
+  }
   if (c.ride) { const key = "stops:" + i + ":" + c.ride.stopsLeft; if (!S.live.sent[key]) { S.live.sent[key] = 1; toast(t("Línea {l}", { l: c.ride.line }) + ": " + t2(c.ride.stopsLeft, "falta {n} parada", "faltan {n} paradas") + ", " + t("bajas en {s}", { s: c.ride.alight }) + ". " + t("Holgura {v} min.", { v: sgn(c.slack) }), c.band); if (c.ride.stopsLeft === 1) notify("alight:" + i, t("Siguiente parada: bájate"), t("Bájate en {s}.", { s: c.ride.alight }) + " " + t("Holgura {v} min.", { v: sgn(c.slack) }), 2); } }
   const late4 = c.delay >= 4 && c.mode !== "arrived" && S.live.phase !== "pre";
   if (!late4) L.delaySince = null; else if (!L.delaySince) L.delaySince = { wall: Date.now(), t: c.t };
@@ -231,5 +242,6 @@ export function resetLive() { S.live = { on: S.live.on, idx: 0, phase: "pre", bo
 export function statusText() {
   const c = L.calc; if (!c || c.done) return t("Plan de porra terminado.");
   const rs = c.runners.filter(x => x.group !== "follow").map(x => `${x.r.name}: km ${Math.max(0, x.km).toFixed(1)}`).join(" · ");
-  return t("Voy a {s}. Llego ~{h}, holgura {v} min.", { s: c.target.name, h: fmt(c.arrive), v: sgn(c.slack) }) + " " + rs;
+  const map = L.gps ? ` https://maps.google.com/?q=${L.gps.lat.toFixed(5)},${L.gps.lng.toFixed(5)}` : "";
+  return t("Voy a {s}. Llego ~{h}, holgura {v} min.", { s: c.target.name, h: fmt(c.arrive), v: sgn(c.slack) }) + " " + rs + map;
 }

@@ -11,7 +11,7 @@ export const DEFAULTS = () => ({
   buf: 5, linger: 2, maxs: 5, avoid: true,
   paceMargin: 3,          // ±% uncertainty on pace
   fatigue: 2,             // % slower per km after km 30
-  plan: null, choice: {},
+  plan: null, choice: {}, custom: [], pace: "walk", legPace: {},
   streets: true, cta: true,
   scrub: null,
   sim: { on: false, start: 480, speed: 1, wall: 0, gps: null },
