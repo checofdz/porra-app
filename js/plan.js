@@ -37,11 +37,11 @@ export function mkLeg(a, aSide, b, forceBest) {
   const rt = rtAt(o, mpm); const W = windowAt(b);
   const first = a.km == null;
   const depart = first ? W.earliest - rt - (+S.buf) : windowAt(a).depart;
-  const leg = { a, b, aSide, opts, o, rt, mpm, depart, arrive: depart + rt, earliest: W.earliest, W, slack: first ? null : W.earliest - (depart + rt + (+S.buf)), first };
+  const leg = { a, b, aSide, opts, o, rt, mpm, depart, arrive: depart + rt, earliest: W.earliest, W, slack: first ? null : W.earliest - (depart + rt), first };
   if (!first) { // minimum on-foot speed that still makes it (best option for that)
-    const avail = W.earliest - (+S.buf) - depart; let best = null;
-    for (const x of opts) { const n = neededMpm(x, avail); if (!best || n < best.mpm) best = { mpm: n, o: x }; }
-    leg.need = best;
+    const bestFor = avail => { let best = null; for (const x of opts) { const n = neededMpm(x, avail); if (!best || n < best.mpm) best = { mpm: n, o: x }; } return best; };
+    leg.need = bestFor(W.earliest - depart);                 // to arrive on time
+    leg.needBuf = bestFor(W.earliest - depart - (+S.buf));   // to arrive with your comfort margin
   }
   return leg;
 }

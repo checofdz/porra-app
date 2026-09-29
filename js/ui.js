@@ -16,14 +16,19 @@ const sgn = v => (v >= 0 ? "+" : "") + Math.round(v);
 const lchip = c => `<span class="lchip" style="background:${LC[c]}">${esc(t(LN[c]))}</span>`;
 const crossChip = n => n ? `<span class="chip warn">${esc(t2(n, "{n} cruce del recorrido", "{n} cruces del recorrido"))}</span>` : `<span class="chip ok">${esc(t("Sin cruzar"))}</span>`;
 export const PR = { 1: "Principal", 2: "Si se puede", 3: "Solo seguir" };
-function chip(sl) { if (sl == null) return ""; const v = Math.round(sl); if (v >= 5) return `<span class="chip ok">${esc(t("Holgura +{v} min", { v }))}</span>`; if (v >= 0) return `<span class="chip warn">${esc(t("Justo · +{v} min", { v }))}</span>`; return `<span class="chip bad">${esc(t("No llegas · {v} min", { v }))}</span>`; }
+// slack = real minutes you arrive before the first main runner. >= margin: fine; 0..margin: you make it but tight; < 0: you miss them
+function chip(sl) { if (sl == null) return ""; const v = Math.floor(sl); if (v >= +S.buf) return `<span class="chip ok">${esc(t("Llegas {v} min antes", { v }))}</span>`; if (v >= 0) return `<span class="chip warn">${esc(t("Llegas justo · {v} min antes", { v }))}</span>`; return `<span class="chip bad">${esc(t("No llegas · {v} min tarde", { v: -v }))}</span>`; }
 function optSummary(o, mpm) { if (o.stay) return t("Te quedas en el mismo lugar"); const wm = Math.round((o.walkM || 0) / (mpm || WMPM)); if (o.walk) return t("Todo a pie · {m} min", { m: wm }); return t("{l} · {m} min a pie", { l: o.label, m: wm }); }
 const paceSeg = (cur, attr) => `<div class="seg pseg" role="group">${Object.entries(PACES).map(([k, p]) => `<button ${attr}="${k}" aria-pressed="${cur === k}">${esc(t(p.n))}<small>${kmh(p.mpm)} km/h</small></button>`).join("")}</div>`;
 function needHTML(l, i) {
-  if (!l.need || l.slack == null || l.slack >= 0) return "";
-  const n = l.need; const mode = paceFor(n.mpm);
-  if (!isFinite(n.mpm) || !mode) return `<div class="need bad">${esc(t("Ni corriendo llegas a tiempo a este punto."))}</div>`;
-  return `<div class="need"><span>${t("Para llegar necesitas moverte a <b>{v} km/h</b> ({m}) en los tramos a pie.", { v: kmh(n.mpm), m: esc(t(PACES[mode].n).toLowerCase()) })}</span><button class="btn sm" data-needpace="${i}:${mode}:${esc(n.o.key)}">${esc(t("Ir {m} en este tramo", { m: t(PACES[mode].n).toLowerCase() }))}</button></div>`;
+  if (!l.need || l.slack == null || l.slack >= +S.buf) return "";
+  const late = l.slack < 0; const n = late ? l.need : l.needBuf; if (!n) return "";
+  const mode = paceFor(n.mpm);
+  if (!isFinite(n.mpm) || !mode) return late ? `<div class="need bad">${esc(t("Ni corriendo llegas a tiempo a este punto."))}</div>` : "";
+  if (!late && mode === paceFor(l.mpm)) return "";
+  const msg = late ? t("Para llegar necesitas moverte a <b>{v} km/h</b> ({m}) en los tramos a pie.", { v: kmh(n.mpm), m: esc(t(PACES[mode].n).toLowerCase()) })
+                   : t("Sí llegas. Si quieres {b} min de margen, muévete a <b>{v} km/h</b> ({m}).", { b: S.buf, v: kmh(n.mpm), m: esc(t(PACES[mode].n).toLowerCase()) });
+  return `<div class="need${late ? "" : " soft"}"><span>${msg}</span><button class="btn sm" data-needpace="${i}:${mode}:${esc(n.o.key)}">${esc(t("Ir {m} en este tramo", { m: t(PACES[mode].n).toLowerCase() }))}</button></div>`;
 }
 function bindNeed(root) { root.querySelectorAll("[data-needpace]").forEach(b => b.onclick = () => { const [i, mode, ok] = b.dataset.needpace.split(":"); const l = planLegs()[+i]; const k = legKey(l.a, l.b); S.legPace[k] = mode; S.choice[k] = ok; save(); renderAll(); }); }
 // preview of adding a spot into the current plan
@@ -85,7 +90,7 @@ function alternatives(i) {
 }
 function altHTML(i) {
   const l = planLegs()[i]; if (!(l.slack != null && l.slack < 0)) return "";
-  const betterOpt = l.opts.find(o => (l.earliest - (l.depart + o.rt + (+S.buf))) >= 0 && o.key !== l.o.key);
+  const betterOpt = l.opts.find(o => (l.earliest - (l.depart + rtAt(o, l.mpm))) >= 0 && o.key !== l.o.key);
   const alts = alternatives(i); let h = `<div class="warnbox" style="margin:0"><b>${esc(t("Cómo arreglarlo:"))}</b> `;
   if (betterOpt) h += esc(t("elige “{o}” en Traslados (sí llegas).", { o: betterOpt.walk ? t("Todo a pie") : betterOpt.label })) + " ";
   if (alts.length) h += esc(t("o cambia {s} por un punto donde sí llegas:", { s: l.b.name })) + `<div class="btnrow" style="margin-top:6px">${alts.map(a => `<button class="btn sm" data-swap="${i}:${a.c.id}">${esc(a.c.name)} · +${Math.round(a.v)} min</button>`).join("")}</div>`;
@@ -98,7 +103,7 @@ export function renderPlan() {
   const from = place("start"); const legs = planLegs(); const G = groups();
   let minSl = Infinity, bad = 0, cross = 0; legs.forEach(l => { cross += l.o.cx || 0; if (l.slack != null) { minSl = Math.min(minSl, l.slack); if (l.slack < 0) bad++; } });
   const bonusSeen = legs.reduce((a, l) => a + l.bonus.filter(b => b.st === "si").length, 0);
-  const sub = legs.length ? (bad ? t2(bad, "{n} traslado no alcanza.", "{n} traslados no alcanzan.") : t("Holgura mínima {v}", { v: isFinite(minSl) ? Math.round(minSl) + " min" : "—" }) + " · " + (cross ? t2(cross, "{n} cruce", "{n} cruces") : t("sin cruzar el recorrido"))) + (G.bonus.length ? " · " + t2(bonusSeen, "{n} vista extra de “si se puede”", "{n} vistas extra de “si se puede”") : "") : t("Agrega puntos desde el mapa o usa Sugerir ruta.");
+  const sub = legs.length ? (bad ? t2(bad, "{n} traslado no alcanza.", "{n} traslados no alcanzan.") : t("En el traslado más justo llegas {v} antes", { v: isFinite(minSl) ? Math.floor(minSl) + " min" : "—" }) + " · " + (cross ? t2(cross, "{n} cruce", "{n} cruces") : t("sin cruzar el recorrido"))) + (G.bonus.length ? " · " + t2(bonusSeen, "{n} vista extra de “si se puede”", "{n} vistas extra de “si se puede”") : "") : t("Agrega puntos desde el mapa o usa Sugerir ruta.");
   let h = `<div class="summary"><span class="big">${legs.length}</span><div><b>${esc(t2(legs.length, "punto para ver a {w}", "puntos para ver a {w}", { w: G.main.map(r => r.name).join(" · ") }))}</b><div class="small">${esc(sub)}</div></div></div>
   <div class="btnrow"><button class="btn primary" id="opt">${esc(t("Sugerir ruta"))}</button><button class="btn" id="share1">${esc(t("Compartir con mi porra"))}</button><button class="btn" id="goTr">${esc(t("Ver traslados"))}</button><button class="btn" id="clr">${esc(t("Vaciar plan"))}</button></div>
   <div class="pacebox"><span class="small">${esc(t("Me muevo a pie:"))}</span>${paceSeg(S.pace || "walk", "data-gpace")}</div>
@@ -153,7 +158,7 @@ export function renderTransfers() {
   legs.forEach((l, i) => { const key = l.a.id + ">" + l.b.id; const fastest = Math.min(...l.opts.map(o => rtAt(o, l.mpm)));
     h += `<div class="tcard" id="leg${i}"><div class="thead"><div class="pair">${l.first ? `<span class="num home">★</span>` : `<span class="num">${i}</span>`}→<span class="num">${i + 1}</span></div><div class="grow"><b>${esc(l.a.name)} → ${esc(l.b.name)}</b><div class="small">${esc(optSummary(l.o, l.mpm))}</div></div>${l.first ? `<span class="chip ok">${esc(t("Sal a las {h}", { h: fmt(l.depart) }))}</span>` : chip(l.slack)}</div>`;
     if (l.opts.length > 1) h += `<fieldset class="opts"><legend class="small">${esc(t("Opciones ({n})", { n: l.opts.length }))}</legend>` + l.opts.map((o, j) => { const sel = o.key === l.o.key; const tags = []; if (Math.abs(rtAt(o, l.mpm) - fastest) < 0.5) tags.push(`<span class="chip ok">${esc(t("Más rápida"))}</span>`); if (j === 0 && !tags.length) tags.push(`<span class="chip ok">${esc(t("Recomendada"))}</span>`);
-        const slack = l.first ? null : l.earliest - (l.depart + rtAt(o, l.mpm) + (+S.buf));
+        const slack = l.first ? null : l.earliest - (l.depart + rtAt(o, l.mpm));
         return `<label class="opt${sel ? " sel" : ""}" for="o${i}_${j}"><input type="radio" id="o${i}_${j}" name="leg${i}" value="${esc(o.key)}" data-key="${esc(key)}"${sel ? " checked" : ""}><div class="ob"><div class="orow"><b>${esc(o.walk ? t("Todo a pie") : o.label)}</b><span class="omin">${Math.round(rtAt(o, l.mpm))} min</span></div><div class="orow small"><span>${o.walk ? `${((o.walkM || 0) / 1000).toFixed(1)} km` : esc(o.sub) + " · " + esc(t("{m} min a pie", { m: Math.round((o.walkM || 0) / l.mpm) }))}</span><span class="ochips">${crossChip(o.cx)}${tags.join("")}${slack != null && slack < 0 ? `<span class="chip bad">${esc(t("No llegas"))}</span>` : ""}</span></div></div></label>`; }).join("") + `</fieldset>`;
     h += `<div class="legpace"><span class="small">${esc(t("En este tramo me muevo:"))}</span>${paceSeg(paceFor(l.mpm) || "walk", `data-lp="${i}" data-lpk`)}</div>${needHTML(l, i)}`;
     h += `<div class="tsum"><div><span>${esc(t("Sales"))}</span><b>${fmt(l.depart)}</b></div><div><span>${esc(t("Llegas"))}</span><b>${fmt(l.arrive)}</b></div><div><span>${esc(t("Pasa el 1º"))}</span><b>${fmt(l.earliest)}</b></div></div>`;
@@ -264,7 +269,7 @@ export function renderSettings() {
   <div class="searchres" id="qres"></div>
   <div class="btnrow"><button class="btn sm" id="pickStart">${esc(t("Elegir en el mapa"))}</button><button class="btn sm" id="gpsStart">${esc(t("Usar mi ubicación"))}</button></div>
   <h2>${esc(t("Plan"))}</h2><div class="sets">
-    <label>${esc(t("Margen de seguridad por traslado (min)"))}<input type="number" id="s_buf" min="0" max="30" value="${S.buf}"></label>
+    <label>${esc(t("Margen cómodo: avisar “justo” si llego con menos de (min)"))}<input type="number" id="s_buf" min="0" max="30" value="${S.buf}"></label>
     <label>${esc(t("Te quedas tras ver al último principal (min)"))}<input type="number" id="s_linger" min="0" max="15" value="${S.linger}"></label>
     <label>${esc(t("Máximo de puntos"))}<select id="s_maxs">${[3, 4, 5, 6, 7].map(n => `<option${+S.maxs === n ? " selected" : ""}>${n}</option>`).join("")}</select></label>
     <label>${esc(t("Incertidumbre del ritmo (±%)"))}<input type="number" id="s_paceMargin" min="0" max="10" step="0.5" value="${S.paceMargin}"></label>

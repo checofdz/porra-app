@@ -110,7 +110,7 @@ export function compute(force) {
   const slack = W.earliest - arrive;
   const leaveBy = W.earliest - eta - (+S.buf);
   const delay = arrive - leg.arrive;
-  const band = slack >= 5 ? "ok" : slack >= 0 ? "tight" : "late";
+  const band = slack >= +S.buf ? "ok" : slack >= 0 ? "tight" : "late";
   // runners
   const { main, bonus, follow } = groups();
   const runners = S.runners.map(r => { const o = proj(r); const km = kmAt(o, t); const nx = firstMissingCP(r);

@@ -258,5 +258,6 @@ header .clock{margin-left:0}
 .need{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 10px;border-radius:8px;background:var(--warn-bg);color:var(--warn);font-size:12.5px;margin:6px 0 0}
 .legpace + .need{margin:8px 12px 0}
 .need.bad{background:var(--bad-bg);color:var(--bad)}
+.need.soft{background:var(--chip);color:var(--fg)}
 .speedline{font-size:13px;padding:8px 10px;border-radius:8px}
 .speedline.ok{background:var(--ok-bg);color:var(--ok)}.speedline.warn{background:var(--warn-bg);color:var(--warn)}

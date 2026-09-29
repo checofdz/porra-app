@@ -404,5 +404,11 @@ export const EN = {
 "Tu ritmo <b>{a} km/h</b> · necesitas <b>{b}</b>": "Your pace <b>{a} km/h</b> · you need <b>{b}</b>",
 "imposible a pie": "impossible on foot",
 "volver a mi ritmo": "back to my pace",
-"{s} · milla {m} (km {k})": "{s} · mile {m} (km {k})"
+"{s} · milla {m} (km {k})": "{s} · mile {m} (km {k})",
+"Llegas {v} min antes": "You arrive {v} min early",
+"Llegas justo · {v} min antes": "Tight · {v} min early",
+"No llegas · {v} min tarde": "You miss it · {v} min late",
+"Sí llegas. Si quieres {b} min de margen, muévete a <b>{v} km/h</b> ({m}).": "You make it. For a {b}-min margin, move at <b>{v} km/h</b> ({m}).",
+"En el traslado más justo llegas {v} antes": "On your tightest transfer you arrive {v} early",
+"Margen cómodo: avisar “justo” si llego con menos de (min)": "Comfort margin: flag “tight” if I arrive with less than (min)"
 };
