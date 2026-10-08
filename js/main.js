@@ -2,8 +2,9 @@ import { S, save, on } from "./state.js";
 import { initEngine } from "./engine.js";
 import { optimize } from "./plan.js";
 import { initMap, draw, goView, focusLL, mapState } from "./map.js";
-import { renderAll, renderLive, openTab, toggleSpot, tickClock } from "./ui.js";
-import { startLive, L } from "./live.js";
+import { renderAll, renderLive, renderRunners, renderPlan, refreshTrackChips, openTab, toggleSpot, tickClock } from "./ui.js";
+import { startTracking } from "./track.js";
+import { startLive, L, compute } from "./live.js";
 import { applyStatic } from "./i18n.js";
 import { checkImport } from "./share.js";
 import { openWizard } from "./onboarding.js";
@@ -29,6 +30,10 @@ async function boot() {
   let rs; window.addEventListener("resize", () => { clearTimeout(rs); rs = setTimeout(draw, 120); });
   on("togglespot", id => toggleSpot(id));
   on("live", () => { if (S.live.on) mapState.time = null; if (!$("pane-live").hidden) renderLive(); if (mapState.follow && L.gps) focusLL(L.gps.lat, L.gps.lng, 150); else draw(); });
+  // live runner GPS: re-render without stealing focus from a field being edited
+  const editing = id => { const a = document.activeElement; return a && a !== document.body && $(id).contains(a) && /INPUT|SELECT|TEXTAREA/.test(a.tagName); };
+  on("track", () => refreshTrackChips());
+  on("trackupdate", () => { if (!editing("pane-run")) renderRunners(); if (!editing("pane-plan")) renderPlan(); if (S.live.on) compute(true); else { if (!$("pane-live").hidden) renderLive(); draw(); } });
   requestAnimationFrame(() => {
     goView("all"); renderAll();
     openTab(S.tab || (S.live.on ? "live" : "plan"));
@@ -37,6 +42,7 @@ async function boot() {
     if (!imported && !S.onboarded) openWizard();
   });
   tickClock(); setInterval(tickClock, 1000);
+  startTracking();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 boot().catch(e => { document.getElementById("pane-plan").innerHTML = `<p class="note">Error: ${e.message}</p>`; console.error(e); });

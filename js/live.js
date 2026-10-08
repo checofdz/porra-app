@@ -5,7 +5,7 @@ import { place, gpsPlace, options, optSteps, hvm, SPOTS, byId, P, rtAt, neededMp
 import { planLegs, windowAt, groups, invalidatePlan } from "./plan.js";
 import { proj, at, kmAt, overdue, invalidatePace, firstMissingCP } from "./pace.js";
 import { mapState } from "./map.js";
-import { t, t2 } from "./i18n.js";
+import { t, t2, t as tr } from "./i18n.js"; // tr: for functions where `t` is the clock
 
 export const L = { gps: null, fixes: [], watch: null, err: null, calc: null, wake: null, timer: null, route: null, routeAt: 0, lastBand: {}, waitStart: null };
 
@@ -76,7 +76,7 @@ export function compute(force) {
   // skip points the main group already passed (you can't make it anymore)
   let guard = 0;
   while (legs[S.live.idx] && S.live.phase !== "arrived" && windowAt(legs[S.live.idx].b).latest < t - 1 && guard++ < 12) {
-    const b = legs[S.live.idx].b; notify("missed:" + b.id, t("Ya pasaron por {s}", { s: b.name }), t("No se alcanzó a llegar. Vamos al siguiente punto."), 2); S.live.idx++; L.route = null; if (S.live.phase === "pre") S.live.phase = "walk"; save();
+    const b = legs[S.live.idx].b; notify("missed:" + b.id, tr("Ya pasaron por {s}", { s: b.name }), tr("No se alcanzó a llegar. Vamos al siguiente punto."), 2); S.live.idx++; L.route = null; if (S.live.phase === "pre") S.live.phase = "walk"; save();
   }
   const leg = legs[S.live.idx];
   if (!leg) { L.calc = { done: true, t }; emit("live"); return; }
@@ -198,7 +198,7 @@ function firstInstr(route) {
 // ---------- splits ----------
 export function recordSplit(r, cpk, time) {
   const leg = curLeg(); const before = leg ? at(proj(r), leg.b.km, "plan") : null;
-  r.splits[cpk] = time != null ? time : Math.round(now() * 10) / 10;
+  r.splits[cpk] = time != null ? time : Math.round(now() * 10) / 10; if (r.auto) delete r.auto[cpk];
   invalidatePace(); invalidatePlan(); save();
   const o = proj(r); const cp = CPS.find(c => c.k === cpk);
   let msg = t("{cp} a las {h}.", { cp: t(cp.n), h: fmt(r.splits[cpk]) });
@@ -207,7 +207,7 @@ export function recordSplit(r, cpk, time) {
   notify("split:" + r.id + ":" + cpk + ":" + r.splits[cpk], t("{r} pasó {cp}", { r: r.name, cp: t(cp.n) }), msg, 1);
   compute(true);
 }
-export function clearSplit(r, cpk) { delete r.splits[cpk]; invalidatePace(); invalidatePlan(); save(); compute(true); }
+export function clearSplit(r, cpk) { delete r.splits[cpk]; if (r.auto) delete r.auto[cpk]; invalidatePace(); invalidatePlan(); save(); compute(true); }
 
 // ---------- notifications ----------
 export function toast(msg, level) { emit("toast", { msg, level }); }

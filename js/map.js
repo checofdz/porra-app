@@ -2,7 +2,7 @@
 import { ST, CTAG, CTAC, LC, VIEWS } from "./race-chicago.js";
 import { S, now, emit } from "./state.js";
 import { MD, C, P, unP, W, H, MI, TOTAL, SPOTS, ptAtKm, place } from "./engine.js";
-import { proj, kmAt } from "./pace.js";
+import { proj, kmAt, livePoint, rawAge } from "./pace.js";
 import { t } from "./i18n.js";
 
 const NS = "http://www.w3.org/2000/svg";
@@ -95,6 +95,11 @@ export function draw() {
   const tt = mapState.time != null ? mapState.time : (S.live.on ? now() : (S.scrub || 540));
   S.runners.forEach((rn, i) => { const k = kmAt(proj(rn), tt); if (k < 0 || k > TOTAL) return; const [la, ln] = ptAtKm(k); const [x, y] = P(la, ln); const rr = (rn.prio === 1 ? 10 : 8) * u;
     el("circle", { cx: x, cy: y, r: rr, fill: rn.color, stroke: "var(--halo)", "stroke-width": 2.5 * u }, gO); txt(gO, x, y + 4 * u, initial(rn.name), { "text-anchor": "middle", "font-size": 11 * u, "font-weight": 700, fill: "#fff", "font-family": "Barlow Condensed, sans-serif", "pointer-events": "none" }); });
+  // real GPS position of tracked runners (ring), when the data is fresh
+  S.runners.forEach(rn => { const lv = livePoint(rn.id); const g = lv && lv.raw; if (!g || rawAge(g) > 20) return; const [x, y] = P(g.lat, g.lng);
+    el("circle", { cx: x, cy: y, r: 13 * u, fill: "none", stroke: rn.color, "stroke-width": 3 * u, "stroke-dasharray": `${4 * u} ${3 * u}` }, gO);
+    el("circle", { cx: x, cy: y, r: 3.5 * u, fill: rn.color, stroke: "var(--halo)", "stroke-width": 1.2 * u }, gO);
+    const tl = el("title", {}, gO); tl.textContent = `${rn.name} · GPS`; });
   if (mapState.gps) { const g = mapState.gps; const [x, y] = P(g.lat, g.lng); const acc = Math.max(4 * u, (g.acc || 0) / 10);
     el("circle", { cx: x, cy: y, r: acc, fill: "var(--accent)", "fill-opacity": .15, stroke: "var(--accent)", "stroke-opacity": .4, "stroke-width": 1 * u }, gO);
     el("circle", { cx: x, cy: y, r: 7 * u, fill: "var(--accent)", stroke: "#fff", "stroke-width": 3 * u }, gO); }

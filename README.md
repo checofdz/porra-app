@@ -16,6 +16,7 @@ Live: https://cheer.elevatesports.group
 - **Tu ritmo como variable**: caminando / caminata rápida / trotando / corriendo, global o por traslado. Cada traslado que no alcanza te dice la velocidad mínima necesaria.
 - **Juega con los puntos**: cada punto muestra si cabe, si cabe trotando o si no cabe; toca la ruta en el mapa para crear tu propio punto.
 - **En vivo**: tu velocidad por GPS vs. la necesaria, con aviso para acelerar; compartir estado incluye tu ubicación.
+- **Ubicación real del corredor** con su celular (OwnTracks gratis → `api/pos` en Vercel + Upstash): detecta sola la salida y cada checkpoint, usa su ritmo GPS real y lo pinta en el mapa. Ver `docs/SEGUIMIENTO.md`.
 - **Simulación** de día de carrera (reloj acelerado + ubicación simulada) para probar antes del 11 de octubre.
 - Funciona sin señal después de abrirla una vez (service worker).
 
@@ -28,6 +29,9 @@ js/state.js           estado persistente + reloj (hora de Chicago / simulación)
 js/engine.js          red peatonal, barrera del recorrido, metro, opciones de ruta
 js/pace.js            proyección de ritmo por corredor
 js/plan.js            prioridades, ventanas por punto, optimizador
+js/track.js           seguimiento GPS del corredor (OwnTracks): snap al recorrido, salida y checkpoints automáticos
+api/pos.js            función Vercel: recibe OwnTracks y entrega posiciones (Upstash Redis)
+runner.html           página para el celular del corredor (instalar y conectar OwnTracks)
 js/map.js             mapa SVG
 js/live.js            GPS, ETA en vivo, progreso en metro, reglas de avisos
 js/ui.js              paneles

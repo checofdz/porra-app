@@ -10,6 +10,8 @@ import { t, t2, lang, setLang } from "./i18n.js";
 import { rtAt } from "./engine.js";
 import { sharePlan } from "./share.js";
 import { openWizard } from "./onboarding.js";
+import { enableTracking, disableTracking, runnerLink, trackStatus, poll as pollTrack } from "./track.js";
+import qrcode from "./vendor/qrcode.js";
 
 const $ = id => document.getElementById(id);
 const sgn = v => (v >= 0 ? "+" : "") + Math.round(v);
@@ -186,12 +188,15 @@ export function renderRunners() {
       <label>${esc(t("Tiempo objetivo (h:mm)"))}<input type="text" inputmode="numeric" data-f="goal" value="${esc(r.goal)}"></label></div>
       <div class="small">${esc(t("Cruza la salida ~{a} (estimado por corral) · meta ~{b}", { a: fmt(o.start), b: fmt(fin) }))}${r.splits["0"] != null ? " · " + esc(t("salida real registrada")) : ""}</div>
       <div class="stat"><div><span>${esc(t("Promedio"))}</span><b>${fmtPace(o.avg ?? o.goalP)}/km</b></div><div><span>${esc(t("Último tramo"))}</span><b>${o.recent ? fmtPace(o.recent) + "/km" : "—"}</b></div><div><span>${esc(t("Proyección usa"))}</span><b>${fmtPace(o.planP)}/km</b></div></div>
-      <div class="small">${o.basis === "splits" ? t2(o.pts.length - 1, "Con {n} split", "Con {n} splits") + (o.state ? " · <b>" + esc(t(o.state)) + "</b>" : "") + ". " + esc(t("El último tramo pesa 65% y el promedio 35%; la ventana va de {a} a {b}/km.", { a: fmtPace(o.fastP), b: fmtPace(o.slowP) })) : esc(t("Sin splits todavía: se usa el tiempo objetivo (±{p}%).", { p: S.paceMargin }))}</div>
+      <div class="small">${o.basis === "gps" ? esc(t("Ritmo real por GPS: el último tramo (≈3 km) pesa 65% y el promedio 35%; la ventana va de {a} a {b}/km.", { a: fmtPace(o.fastP), b: fmtPace(o.slowP) })) + (o.state ? " · <b>" + esc(t(o.state)) + "</b>" : "") : o.basis === "splits" ? t2(o.pts.length - 1, "Con {n} split", "Con {n} splits") + (o.state ? " · <b>" + esc(t(o.state)) + "</b>" : "") + ". " + esc(t("El último tramo pesa 65% y el promedio 35%; la ventana va de {a} a {b}/km.", { a: fmtPace(o.fastP), b: fmtPace(o.slowP) })) : esc(t("Sin splits todavía: se usa el tiempo objetivo (±{p}%).", { p: S.paceMargin }))}</div>
+      ${trackBlock(r)}
       <details class="box"${Object.keys(r.splits).length ? " open" : ""}><summary>${esc(t("Splits (tapetes oficiales)"))}</summary><div class="cps" style="margin-top:8px">${CPS.map(cp => { const v = r.splits[cp.k]; const exp = cp.km === 0 ? o.start : at(o, cp.km, "plan");
-        return `<div class="cp${v != null ? " done" : ""}"><b>${esc(t(cp.n))}</b><span class="exp">${v != null ? "" : "~" + fmt(exp)}</span><div class="v"><input type="time" step="60" data-cp="${cp.k}" value="${v != null ? hhmm(v) : ""}" aria-label="${esc(t(cp.n))} · ${esc(r.name)}">${v != null ? `<button class="btn xs" data-clr="${cp.k}" aria-label="${esc(t("Borrar"))}">×</button>` : `<button class="btn xs" data-now="${cp.k}">${esc(t("Ahora"))}</button>`}</div></div>`; }).join("")}</div></details>
+        return `<div class="cp${v != null ? " done" : ""}"><b>${esc(t(cp.n))}</b><span class="exp">${v != null ? (r.auto && r.auto[cp.k] ? (r.auto[cp.k] === 2 ? "GPS ≈" : "GPS") : "") : "~" + fmt(exp)}</span><div class="v"><input type="time" step="60" data-cp="${cp.k}" value="${v != null ? hhmm(v) : ""}" aria-label="${esc(t(cp.n))} · ${esc(r.name)}">${v != null ? `<button class="btn xs" data-clr="${cp.k}" aria-label="${esc(t("Borrar"))}">×</button>` : `<button class="btn xs" data-now="${cp.k}">${esc(t("Ahora"))}</button>`}</div></div>`; }).join("")}</div></details>
       <div class="btnrow"><a class="btn sm" href="${RACE.officialApp.web}" target="_blank" rel="noopener">${esc(t("Resultados oficiales"))}</a><button class="btn sm danger" data-del="1">${esc(t("Quitar corredor"))}</button></div></div>`; });
   h += `<div class="btnrow"><button class="btn primary" id="addRunner">${esc(t("+ Agregar corredor"))}</button><button class="btn" id="wizAgain">${esc(t("Configuración guiada"))}</button></div>`;
+  const openD = new Set([...$("pane-run").querySelectorAll(".runner details[open]")].map(d => d.closest(".runner").dataset.r));
   $("pane-run").innerHTML = h;
+  $("pane-run").querySelectorAll(".runner").forEach(c => { if (openD.has(c.dataset.r)) { const d = c.querySelector("details"); if (d) d.open = true; } });
   $("addRunner").onclick = () => { S.runners.push(newRunner(S.runners.length, { name: t("Corredor {n}", { n: S.runners.length + 1 }) })); save(); renderAll(); };
   $("wizAgain").onclick = () => openWizard();
   $("pane-run").querySelectorAll(".runner").forEach(card => { const r = S.runners.find(x => x.id === card.dataset.r);
@@ -200,7 +205,45 @@ export function renderRunners() {
     card.querySelectorAll("[data-cp]").forEach(inp => inp.addEventListener("change", () => { const v = parseHM(inp.value); if (v != null) recordSplit(r, inp.dataset.cp, v); else clearSplit(r, inp.dataset.cp); renderAll(true); }));
     card.querySelectorAll("[data-now]").forEach(b => b.onclick = () => { recordSplit(r, b.dataset.now); renderAll(true); });
     card.querySelectorAll("[data-clr]").forEach(b => b.onclick = () => { clearSplit(r, b.dataset.clr); renderAll(true); });
+    card.querySelectorAll("[data-trk]").forEach(b => b.onclick = async () => { const a = b.dataset.trk;
+      if (a === "on") { await enableTracking(r); renderRunners(); openTrackSheet(r); }
+      else if (a === "setup") openTrackSheet(r);
+      else if (a === "off") { if (confirm(t("¿Dejar de seguir a {n} por GPS? Se borran los splits que vinieron del GPS.", { n: r.name }))) { disableTracking(r); renderAll(true); } } });
     card.querySelector("[data-del]").onclick = () => { S.runners = S.runners.filter(x => x !== r); if (!S.runners.length) S.plan = []; save(); renderAll(); }; });
+}
+
+// ---------- live runner tracking (runner's phone GPS) ----------
+function trackBlock(r) {
+  const st = trackStatus(r);
+  if (!r.trk) return `<div class="trk"><div class="trkhd"><b>📡 ${esc(t("Ubicación en vivo"))}</b></div>
+    <p class="small">${esc(t("Con su celular en el bolsillo (app gratis OwnTracks) ves dónde va de verdad: la app detecta sola cuándo cruza la salida y cada checkpoint, y recalcula tus tiempos con su ritmo real."))}</p>
+    <div class="btnrow"><button class="btn sm primary" data-trk="on">${esc(t("Seguir con su celular"))}</button></div></div>`;
+  return `<div class="trk"><div class="trkhd"><b>📡 ${esc(t("Ubicación en vivo"))}</b><span class="chip ${st.level}">${st.live ? '<span class="dotlive"></span>' : ""}${esc(st.text)}</span></div>
+    <div class="btnrow">${r.trk.w ? `<button class="btn sm" data-trk="setup">${esc(t("Link y QR para el corredor"))}</button>` : `<span class="small">${esc(t("Seguimiento compartido por tu porra."))}</span>`}<button class="btn sm danger" data-trk="off">${esc(t("Dejar de seguir"))}</button></div></div>`;
+}
+// cheap refresh of the "last data X ago" chips (every poll) without re-rendering the cards
+export function refreshTrackChips() {
+  document.querySelectorAll("#pane-run .runner").forEach(card => { const r = S.runners.find(x => x.id === card.dataset.r); const el = card.querySelector(".trkhd .chip"); if (!r || !el) return; const st = trackStatus(r); if (!st) return;
+    el.className = "chip " + st.level; el.innerHTML = (st.live ? '<span class="dotlive"></span>' : "") + esc(st.text); });
+}
+function qrSVG(text) { const q = qrcode(0, "M"); q.addData(text); q.make(); return q.createSvgTag({ cellSize: 4, margin: 3, scalable: true }); }
+export function openTrackSheet(r) {
+  const link = runnerLink(r); if (!link) return; const sheet = $("sheet"); const n = r.name || t("tu corredor");
+  const msg = t("Hola {n}: para que tu porra te siga en vivo en el maratón, abre este link en tu celular y sigue los pasos (2 min): ", { n }) + link;
+  sheet.innerHTML = `<div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="tkT"><h2 id="tkT">${esc(t("Seguir a {n} en vivo", { n }))}</h2>
+    <ol class="tsteps"><li>${t("Manda este link a <b>{n}</b> (o que escanee el QR con la cámara de su celular).", { n: esc(n) })}</li>
+    <li>${t("En su celular: instala <b>OwnTracks</b> (gratis), toca <b>Conectar</b> y acepta la ubicación <b>siempre</b>.")}</li>
+    <li>${t("Listo: aquí verás <b>Último dato hace…</b>. El día de la carrera solo lleva su celular con batería llena.")}</li></ol>
+    <div class="qrbox">${qrSVG(link)}</div>
+    <input type="text" readonly value="${esc(link)}" id="tkLink" aria-label="${esc(t("Link para el corredor"))}">
+    <div class="btnrow"><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">${esc(t("Enviar por WhatsApp"))}</a><button class="btn" id="tkShare">${esc(t("Compartir / copiar"))}</button><button class="btn" id="tkTest">${esc(t("Revisar señal"))}</button><button class="btn" id="tkClose">${esc(t("Cerrar"))}</button></div>
+    <p class="small" id="tkSt">${esc((trackStatus(r) || {}).text || "")}</p>
+    <p class="note">${esc(t("Su ubicación solo la ve quien tenga tu plan. Los datos se borran solos a los 14 días."))}</p></div>`;
+  sheet.hidden = false;
+  $("tkLink").onclick = e => e.target.select();
+  $("tkClose").onclick = () => { sheet.hidden = true; };
+  $("tkTest").onclick = async () => { $("tkSt").textContent = t("Revisando…"); await pollTrack(true); $("tkSt").textContent = (trackStatus(r) || {}).text || ""; };
+  $("tkShare").onclick = async () => { try { if (navigator.share) await navigator.share({ text: msg }); else { await navigator.clipboard.writeText(msg); emit("toast", { msg: t("Link copiado."), level: "ok" }); } } catch (e) {} };
 }
 
 // ---------- LIVE ----------
@@ -209,7 +252,7 @@ export function renderLive() {
   if (!S.runners.length) { pane.innerHTML = emptyState("live"); bindWiz(pane); return; }
   if (!S.live.on) {
     pane.innerHTML = `<h2>${esc(t("Modo en vivo"))}</h2><p class="note">${esc(t("El día de la carrera: usa tu GPS para calcular cuánto te falta al siguiente punto, compara contra la hora en que pasan tus corredores y te avisa si vas bien, justo o tarde. Si vas en el metro te dice cuántas paradas faltan."))}</p>
-    <ul class="facts"><li>${esc(t("Mantén la app abierta con la pantalla encendida (actívalo abajo). En iPhone, agrégala a la pantalla de inicio para recibir notificaciones."))}</li><li>${t("Cuando la app oficial te avise que tu corredor pasó un tapete (5K, 10K…), toca <b>Pasó</b> aquí: el ritmo y las horas se recalculan.")}</li><li>${t("Cuando tu corredor esté a 3 minutos suena una <b>alarma</b> con cuenta regresiva.")}</li><li>${t("Para probar antes del 11 de octubre, activa la <b>simulación</b> en Ajustes.")}</li></ul>
+    <ul class="facts"><li>${esc(t("Mantén la app abierta con la pantalla encendida (actívalo abajo). En iPhone, agrégala a la pantalla de inicio para recibir notificaciones."))}</li><li>${t("Si tu corredor lleva su celular con OwnTracks (pestaña Corredores → <b>Seguir con su celular</b>), la salida y cada checkpoint se registran solos con su GPS.")}</li><li>${t("Si no, cuando la app oficial te avise que pasó un tapete (5K, 10K…), toca <b>Pasó</b> aquí: el ritmo y las horas se recalculan.")}</li><li>${t("Cuando tu corredor esté a 3 minutos suena una <b>alarma</b> con cuenta regresiva.")}</li><li>${t("Para probar antes del 11 de octubre, activa la <b>simulación</b> en Ajustes.")}</li></ul>
     <div class="btnrow"><button class="btn primary" id="liveStart">${esc(t("Iniciar modo en vivo"))}</button><button class="btn" id="liveNotif">${esc(S.notif ? t("Notificaciones activas") : t("Activar notificaciones"))}</button><button class="btn" id="liveWake">${esc(S.wake ? t("Pantalla: siempre encendida") : t("Mantener pantalla encendida"))}</button></div>`;
     $("liveStart").onclick = () => { startLive(); openTab("live"); };
     $("liveNotif").onclick = async () => { const e = await enableNotifications(); if (e) emit("toast", { msg: e, level: "tight" }); renderLive(); };
@@ -238,7 +281,7 @@ export function renderLive() {
   if (c.alts.length) h += `<div class="warnbox" style="margin:0"><b>${esc(c.band === "late" ? t("No llegas a tiempo.") : t("Vas justo."))}</b> ${esc(t("Puntos donde sí llegas desde aquí:"))}<div class="btnrow" style="margin-top:6px">${c.alts.map(a => `<button class="btn sm" data-alt="${a.c.id}">${esc(a.c.name)} · ${Math.round(a.o.rt)} min · +${Math.round(a.slack)}</button>`).join("")}</div></div>`;
   h += `<h3>${esc(t("Corredores ahora"))}</h3><div>` + c.runners.map(x => { const r = x.r; const km = x.km; const pos = km < 0 ? t("Sale ~{h}", { h: fmt(proj(r).start) }) : km > 42.2 ? t("Terminó") : `km ${km.toFixed(1)} · ${streetAtKm(km)}`;
     const nx = x.nextCP; const btn = nx ? `<button class="btn sm${x.od ? " primary" : ""}" data-split="${r.id}:${nx.k}">${esc(nx.km === 0 ? t("Cruzó salida") : t("Pasó {cp}", { cp: t(nx.n) }))}</button>` : "";
-    return `<div class="lr"><span class="sw" style="background:${r.color}"></span><div><div class="nm">${esc(r.name)} <span class="pchip prio${r.prio}">${esc(t(PR[r.prio]))}</span></div><div class="meta">${esc(pos)}${nx ? ` · ${esc(t(nx.n))} ~${fmt(x.nextAt)}` : ""}${x.od ? ` · <b style="color:var(--warn)">${esc(t("¿ya pasó {cp}?", { cp: t(x.od.cp.n) }))}</b>` : ""}</div><div class="meta">${esc(x.passed ? t("Ya pasó por {s}", { s: T.name }) : t("En {s}: {a}", { s: T.name, a: fmt(x.fast) + (fmt(x.slow) !== fmt(x.fast) ? "–" + fmt(x.slow) : "") }))}${proj(r).state ? " · " + esc(t(proj(r).state)) : ""}</div></div>${btn}</div>`; }).join("") + `</div>`;
+    return `<div class="lr"><span class="sw" style="background:${r.color}"></span><div><div class="nm">${esc(r.name)} <span class="pchip prio${r.prio}">${esc(t(PR[r.prio]))}</span></div>${r.trk ? (st => st ? `<div class="meta trkline ${st.level}">📡 ${esc(st.text)}</div>` : "")(trackStatus(r)) : ""}<div class="meta">${esc(pos)}${nx ? ` · ${esc(t(nx.n))} ~${fmt(x.nextAt)}` : ""}${x.od ? ` · <b style="color:var(--warn)">${esc(t("¿ya pasó {cp}?", { cp: t(x.od.cp.n) }))}</b>` : ""}</div><div class="meta">${esc(x.passed ? t("Ya pasó por {s}", { s: T.name }) : t("En {s}: {a}", { s: T.name, a: fmt(x.fast) + (fmt(x.slow) !== fmt(x.fast) ? "–" + fmt(x.slow) : "") }))}${proj(r).state ? " · " + esc(t(proj(r).state)) : ""}</div></div>${btn}</div>`; }).join("") + `</div>`;
   h += `<h3>${esc(t("Avisos"))}</h3><div class="feed">${S.live.feed.slice(0, 12).map(f => `<div class="it l${f.level}"><time>${fmt(f.t)}</time><b>${esc(f.title)}</b> ${esc(f.body)}</div>`).join("") || `<p class="note">${esc(t("Aún no hay avisos."))}</p>`}</div>`;
   h += `<div class="btnrow"><button class="btn sm" id="liveNotif">${esc(S.notif ? t("Notificaciones activas") : t("Activar notificaciones"))}</button><button class="btn sm" id="liveWake">${esc(S.wake ? t("Pantalla encendida ✓") : t("Mantener pantalla encendida"))}</button>${legs.length ? `<select id="jump" class="btn sm" aria-label="${esc(t("Cambiar punto actual"))}">${legs.map((l, j) => `<option value="${j}"${j === i ? " selected" : ""}>${esc(t("Ir al punto {n}: {s}", { n: j + 1, s: l.b.name }))}</option>`).join("")}</select>` : ""}<button class="btn sm" id="liveReset">${esc(t("Reiniciar"))}</button><button class="btn sm danger" id="liveStop">${esc(t("Salir del modo en vivo"))}</button></div>`;
   pane.innerHTML = h;

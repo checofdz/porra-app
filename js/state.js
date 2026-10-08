@@ -54,6 +54,12 @@ export function realNow() {
   const p = {}; fmtTZ.formatToParts(new Date()).forEach(x => (p[x.type] = x.value));
   return (+p.hour) * 60 + (+p.minute) + (+p.second) / 60;
 }
+const fmtDay = new Intl.DateTimeFormat("en-CA", { timeZone: RACE.tz, year: "numeric", month: "2-digit", day: "2-digit" });
+// epoch ms → { day: "YYYY-MM-DD", min: minutes since midnight } in race time zone
+export function raceTime(ms) {
+  const d = new Date(ms); const p = {}; fmtTZ.formatToParts(d).forEach(x => (p[x.type] = x.value));
+  return { day: fmtDay.format(d), min: (+p.hour) * 60 + (+p.minute) + (+p.second) / 60 };
+}
 export function now() {
   if (S.sim.on) return S.sim.start + ((Date.now() - S.sim.wall) / 60000) * S.sim.speed;
   return realNow();
