@@ -45,7 +45,7 @@ Estado al jueves 8 oct 2026, 15:00 CDMX. La carrera es el **domingo 11 oct 2026*
 | `js/vendor/qrcode.js` | qrcode-generator 1.4.4 (MIT) como ES module |
 | `api/pos.js` | Función Vercel (CommonJS, sin dependencias) |
 | `runner.html` | Página para el celular del corredor (ES/EN) |
-| `sw.js` | Service worker; versión actual **`cheer-chi26-v5`**. No intercepta `/api/` |
+| `sw.js` | Service worker; versión actual **`cheer-chi26-v6`**. No intercepta `/api/` |
 | `tools/` | Pipeline Python que generó `data/mapdata.json` y `data/walkgraph.json` (no tocar) |
 | `docs/` | SEGUIMIENTO.md, DATOS-OFICIALES.md (con borrador de correo a office@chicagomarathon.com), ROADMAP.md |
 
@@ -89,6 +89,17 @@ Estado al jueves 8 oct 2026, 15:00 CDMX. La carrera es el **domingo 11 oct 2026*
 - Link compartido sin `w`.
 - Apagar seguimiento conserva el split manual.
 
+## Hallazgo 8 oct (tarde): OwnTracks bloquea los links de configuración
+Revisado en el código fuente de OwnTracks: **iOS desde 26.2.3 (may 2026) y Android desde 2.6.0** traen `allowConfigurationByURIAndConfigFile = false` por defecto, y un link de configuración **no puede** activarlo. Con instalación nueva, el botón "Conectar OwnTracks" fallaba ("URI or file configuration not allowed").
+- `runner.html` ahora tiene un paso 2 nuevo: activar **Allow external configuration** antes de tocar Conectar.
+  - iPhone: ⓘ (arriba a la izquierda del mapa) → Settings → Remote Control → Allow external configuration → confirmar.
+  - Android: ☰ → Preferences → Remote Control (o Advanced) → Allow external configuration → Enable.
+- Config: se agregó `usePassword:false`. Base64 estándar + `encodeURIComponent` verificado contra cómo decodifican iOS (NSURLComponents) y Android (URLDecoder).
+- En iOS el modo se cambia en la barra Quiet · Manual · Significant · Move arriba del mapa. iOS 27.0.2 (7 oct) arregló un bug al cambiar de modo: que los corredores actualicen.
+- `/api/pos?ping=1` ahora hace un PING real a Redis: devuelve `storage` (hay credenciales) y `redis` (la base responde). Ambos deben ser `true`.
+- Al 8 oct 15:15 producción respondía `"storage":false`: **falta conectar Upstash en Vercel**.
+- Prueba e2e (Playwright + handler real + Upstash falso): QR, WhatsApp, página del corredor ES/EN/iPhone/Android, decodificación del link, 184 POSTs tipo OwnTracks, salida y 5K detectados con <0.1 min de error.
+
 ## Decisiones tomadas (no reabrir)
 - **Holgura:** `slack` es la holgura **real**. El margen (`S.buf`) solo sirve para marcar "justo" en amarillo y sugerir ir más rápido. "No llegas" solo cuando de verdad llegas tarde.
 - **Sin datos oficiales:** no hay API pública y no se hace scraping (mika:timing / results están prohibidos por robots). Sin celular, el respaldo son los splits manuales que la porra toca en "Pasó 10K".
@@ -103,7 +114,7 @@ Estado al jueves 8 oct 2026, 15:00 CDMX. La carrera es el **domingo 11 oct 2026*
    - **Si llega 502:** error de storage.
    - **Si llega 200 sin datos:** revisar que el body tenga `_type: "location"`. En Vercel, `req.body` puede venir ya parseado; `readBody` lo maneja.
 3. **Cada corredor** hace la prueba y confirma "¡Te vemos!" en su página. El día de la carrera: batería al 100 %, modo **Move**, no cerrar OwnTracks.
-4. **Celular de Checo:** abrir la app, recargar (para tomar el SW v5), agregarla a la pantalla de inicio (en iPhone es necesario para las notificaciones), activar notificaciones y mantener la pantalla encendida.
+4. **Celular de Checo:** abrir la app, recargar (para tomar el SW v6), agregarla a la pantalla de inicio (en iPhone es necesario para las notificaciones), activar notificaciones y mantener la pantalla encendida.
 5. **Plan:** revisar el plan final y compartir el link con la porra. Probar que, al abrirlo en otro teléfono, los corredores con seguimiento muestran "Seguimiento compartido".
 6. **Ensayo:** Ajustes → simulación a las 8:00 ×10 → modo en vivo, para revisar avisos, alarma y "Ya los vi".
 7. **Plan B sin señal:** la app funciona offline después de abrirla una vez, pero el seguimiento GPS necesita datos. Sin ellos, usar los botones "Pasó 5K/10K" con la app oficial (TCS).

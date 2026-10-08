@@ -232,7 +232,7 @@ export function openTrackSheet(r) {
   const msg = t("Hola {n}: para que tu porra te siga en vivo en el maratón, abre este link en tu celular y sigue los pasos (2 min): ", { n }) + link;
   sheet.innerHTML = `<div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="tkT"><h2 id="tkT">${esc(t("Seguir a {n} en vivo", { n }))}</h2>
     <ol class="tsteps"><li>${t("Manda este link a <b>{n}</b> (o que escanee el QR con la cámara de su celular).", { n: esc(n) })}</li>
-    <li>${t("En su celular: instala <b>OwnTracks</b> (gratis), toca <b>Conectar</b> y acepta la ubicación <b>siempre</b>.")}</li>
+    <li>${t("En su celular: instala <b>OwnTracks</b> (gratis), activa <b>Allow external configuration</b> (la página le dice dónde), toca <b>Conectar</b> y acepta la ubicación <b>siempre</b>.")}</li>
     <li>${t("Listo: aquí verás <b>Último dato hace…</b>. El día de la carrera solo lleva su celular con batería llena.")}</li></ol>
     <div class="qrbox">${qrSVG(link)}</div>
     <input type="text" readonly value="${esc(link)}" id="tkLink" aria-label="${esc(t("Link para el corredor"))}">

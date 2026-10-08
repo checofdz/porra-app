@@ -436,7 +436,7 @@ export const EN = {
 "Hola {n}: para que tu porra te siga en vivo en el maratón, abre este link en tu celular y sigue los pasos (2 min): ": "Hi {n}: so your cheer crew can follow you live during the marathon, open this link on your phone and follow the steps (2 min): ",
 "Seguir a {n} en vivo": "Follow {n} live",
 "Manda este link a <b>{n}</b> (o que escanee el QR con la cámara de su celular).": "Send this link to <b>{n}</b> (or have them scan the QR with their phone camera).",
-"En su celular: instala <b>OwnTracks</b> (gratis), toca <b>Conectar</b> y acepta la ubicación <b>siempre</b>.": "On their phone: install <b>OwnTracks</b> (free), tap <b>Connect</b> and allow location <b>always</b>.",
+"En su celular: instala <b>OwnTracks</b> (gratis), activa <b>Allow external configuration</b> (la página le dice dónde), toca <b>Conectar</b> y acepta la ubicación <b>siempre</b>.": "On their phone: install <b>OwnTracks</b> (free), turn on <b>Allow external configuration</b> (the page shows where), tap <b>Connect</b> and allow location <b>always</b>.",
 "Listo: aquí verás <b>Último dato hace…</b>. El día de la carrera solo lleva su celular con batería llena.": "Done: you'll see <b>Last update … ago</b> here. On race day they just carry their phone fully charged.",
 "Link para el corredor": "Link for the runner",
 "Enviar por WhatsApp": "Send via WhatsApp",

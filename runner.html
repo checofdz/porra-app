@@ -54,17 +54,20 @@ const ES = {
   race: "Maratón de Chicago · 11 oct 2026",
   title: n => `${n ? n + ", tu" : "Tu"} porra te va a seguir en vivo`,
   intro: "Con esto tu porra ve dónde vas de verdad durante el maratón y sabe exactamente cuándo llegar a cada punto para verte. Solo necesitas tu celular. Toma 2 minutos.",
-  s1: "Instala OwnTracks", s1p: "Es gratis, sin anuncios y sin cuenta. Solo manda tu ubicación a tu porra.",
-  s2: "Conéctala con tu porra", s2b: "Conectar OwnTracks", s2p: "Se abre OwnTracks y pregunta si quieres importar la configuración: toca <b>Importar / OK</b>.",
+  s1: "Instala OwnTracks", s1p: "Es gratis, sin anuncios y sin cuenta. Solo manda tu ubicación a tu porra. Si ya la tenías, actualízala.",
+  sx: "Deja que el link la configure", sxp: "OwnTracks bloquea los links de configuración hasta que lo permites (es una medida de seguridad). Ábrela una vez y:",
+  sxios: "<b>iPhone:</b> toca <b>ⓘ</b> (arriba a la izquierda del mapa) → <b>Settings</b> → <b>Remote Control</b> → activa <b>Allow external configuration</b> → confirma.",
+  sxand: "<b>Android:</b> menú <b>☰</b> → <b>Preferences</b> → <b>Remote Control</b> → activa <b>Allow external configuration</b> → <b>Enable</b>. (En algunas versiones está en <b>Advanced</b>.)",
+  s2: "Conéctala con tu porra", s2b: "Conectar OwnTracks", s2p: "Regresa a esta página y toca el botón. Se abre OwnTracks con los cambios: toca <b>Importar / Guardar</b>. Si no pasa nada o dice <i>not allowed</i>, revisa el paso anterior o usa la configuración a mano.",
   s3: "Permite la ubicación siempre",
   s3ios: "<b>iPhone:</b> Ajustes → OwnTracks → Ubicación → <b>Siempre</b>, y activa <b>Ubicación exacta</b>.",
   s3and: "<b>Android:</b> permiso de ubicación → <b>Permitir todo el tiempo</b>. Ajustes → Apps → OwnTracks → Batería → <b>Sin restricciones</b>.",
   s4: "Prueba que llega", s4p: "En OwnTracks toca el botón de enviar (flecha ↑) para mandar tu ubicación ahora.",
   wait: "Esperando tu ubicación…", ok: a => `¡Te vemos! Último dato ${a}`, noStore: "El servidor aún no está listo. Avísale a quien te mandó el link.", net: "Sin conexión. Reintentando…",
   s5: "El día de la carrera",
-  s5l: ["Carga tu celular al 100% (OwnTracks en modo Move gasta batería; lleva batería externa si tu celular es viejo).", "Antes de ir al corral, en OwnTracks cambia el modo a <b>Move</b>: en iPhone toca el ícono de arriba a la izquierda hasta que diga Move; en Android, el ícono de modo en la barra.", "No cierres OwnTracks deslizándola. Puede quedarse en segundo plano con la pantalla bloqueada.", "Después de la carrera cambia a <b>Significant</b> o <b>Quiet</b>, o desinstálala."],
+  s5l: ["Carga tu celular al 100% (OwnTracks en modo Move gasta batería; lleva batería externa si tu celular es viejo).", "Antes de ir al corral, en OwnTracks cambia el modo a <b>Move</b>: en iPhone toca <b>Move</b> en la barra de modos arriba del mapa (Quiet · Manual · Significant · Move); en Android, el ícono de modo en la barra superior. Si conectaste con el botón, ya queda en Move.", "No cierres OwnTracks deslizándola. Puede quedarse en segundo plano con la pantalla bloqueada.", "Después de la carrera cambia a <b>Significant</b> o <b>Quiet</b>, o desinstálala."],
   manual: "¿El botón Conectar no funcionó? Configúralo a mano",
-  m1: "En OwnTracks: Ajustes (o Preferencias) → Conexión → Modo: <b>HTTP</b>.", m2: "URL (cópiala completa):", m3: id => `Identificador / Tracker ID: <b>${id}</b>. Autenticación: apagada.`,
+  m1: "En OwnTracks: Settings / Preferences → Connection → Mode: <b>HTTP</b>.", m2: "URL o Host (cópiala completa):", m3: id => `Tracker ID: <b>${id}</b>. Authentication / usuario y contraseña: apagados o vacíos.`, m4: "Guarda y cambia el modo de monitoreo a <b>Move</b> (paso 6).",
   copy: "Copiar", copied: "Copiado",
   privacy: "Tu ubicación solo la ve tu porra (quien tenga su plan) y se borra sola a los 14 días.",
   bad: "Este link no está completo. Pídele a tu porra que te lo mande otra vez.",
@@ -74,17 +77,20 @@ const EN = {
   race: "Chicago Marathon · Oct 11, 2026",
   title: n => `${n ? n + ", your" : "Your"} cheer crew will follow you live`,
   intro: "This lets your cheer crew see where you really are during the marathon and know exactly when to be at each spot to see you. All you need is your phone. Takes 2 minutes.",
-  s1: "Install OwnTracks", s1p: "Free, no ads, no account. It only sends your location to your crew.",
-  s2: "Connect it to your crew", s2b: "Connect OwnTracks", s2p: "OwnTracks opens and asks whether to import the configuration: tap <b>Import / OK</b>.",
+  s1: "Install OwnTracks", s1p: "Free, no ads, no account. It only sends your location to your crew. If you already had it, update it.",
+  sx: "Let the link set it up", sxp: "OwnTracks blocks configuration links until you allow them (a security setting). Open it once and:",
+  sxios: "<b>iPhone:</b> tap <b>ⓘ</b> (top left of the map) → <b>Settings</b> → <b>Remote Control</b> → turn on <b>Allow external configuration</b> → confirm.",
+  sxand: "<b>Android:</b> <b>☰</b> menu → <b>Preferences</b> → <b>Remote Control</b> → turn on <b>Allow external configuration</b> → <b>Enable</b>. (Some versions have it under <b>Advanced</b>.)",
+  s2: "Connect it to your crew", s2b: "Connect OwnTracks", s2p: "Come back to this page and tap the button. OwnTracks opens with the changes: tap <b>Import / Save</b>. If nothing happens or it says <i>not allowed</i>, check the previous step or set it up by hand.",
   s3: "Allow location always",
   s3ios: "<b>iPhone:</b> Settings → OwnTracks → Location → <b>Always</b>, and turn on <b>Precise Location</b>.",
   s3and: "<b>Android:</b> location permission → <b>Allow all the time</b>. Settings → Apps → OwnTracks → Battery → <b>Unrestricted</b>.",
   s4: "Check that it arrives", s4p: "In OwnTracks tap the send button (↑ arrow) to send your location now.",
   wait: "Waiting for your location…", ok: a => `We can see you! Last update ${a}`, noStore: "The server isn't ready yet. Tell whoever sent you the link.", net: "No connection. Retrying…",
   s5: "On race day",
-  s5l: ["Charge your phone to 100% (Move mode uses battery; bring a power bank if your phone is old).", "Before heading to your corral, switch OwnTracks to <b>Move</b> mode: on iPhone tap the top-left icon until it says Move; on Android, the mode icon in the toolbar.", "Don't swipe OwnTracks away. It can stay in the background with the screen locked.", "After the race switch to <b>Significant</b> or <b>Quiet</b>, or uninstall it."],
+  s5l: ["Charge your phone to 100% (Move mode uses battery; bring a power bank if your phone is old).", "Before heading to your corral, switch OwnTracks to <b>Move</b> mode: on iPhone tap <b>Move</b> in the mode bar at the top of the map (Quiet · Manual · Significant · Move); on Android, the mode icon in the top bar. If you connected with the button, it's already on Move.", "Don't swipe OwnTracks away. It can stay in the background with the screen locked.", "After the race switch to <b>Significant</b> or <b>Quiet</b>, or uninstall it."],
   manual: "Connect button didn't work? Set it up by hand",
-  m1: "In OwnTracks: Settings (or Preferences) → Connection → Mode: <b>HTTP</b>.", m2: "URL (copy it whole):", m3: id => `Identification / Tracker ID: <b>${id}</b>. Authentication: off.`,
+  m1: "In OwnTracks: Settings / Preferences → Connection → Mode: <b>HTTP</b>.", m2: "URL or Host (copy it whole):", m3: id => `Tracker ID: <b>${id}</b>. Authentication / username and password: off or empty.`, m4: "Save, then switch monitoring mode to <b>Move</b> (step 6).",
   copy: "Copy", copied: "Copied",
   privacy: "Only your cheer crew (whoever has their plan) can see your location, and it's deleted automatically after 14 days.",
   bad: "This link is incomplete. Ask your cheer crew to send it again.",
@@ -99,7 +105,7 @@ const root = document.getElementById("root");
 const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent), isAnd = /Android/.test(navigator.userAgent);
 
 const url = `${location.origin}/api/pos?w=${encodeURIComponent(w)}`;
-const cfg = { _type: "configuration", mode: 3, url, tid, deviceId: "cheer-" + tid.toLowerCase(), username: "cheer", auth: false,
+const cfg = { _type: "configuration", mode: 3, url, tid, deviceId: "cheer-" + tid.toLowerCase(), username: "cheer", auth: false, usePassword: false,
   monitoring: 2, locatorDisplacement: 50, locatorInterval: 30, moveModeLocatorInterval: 15, locatorPriority: 3,
   pubExtendedData: true, extendedData: true, ignoreInaccurateLocations: 100, cmd: false, remoteConfiguration: false };
 const b64 = s => btoa(unescape(encodeURIComponent(s)));
@@ -115,11 +121,12 @@ function render() {
   root.innerHTML = `<div class="hero"><button class="lang" id="lang">${L === EN ? "ES" : "EN"}</button><div class="race">Cheer Crew · ${L.race}</div><h1>${esc(L.title(name))}</h1><p>${L.intro}</p></div>
   <main>
     <section class="card"><h2><span class="n">1</span>${L.s1}</h2><p class="muted">${L.s1p}</p><div class="row">${store.join("")}</div></section>
-    <section class="card"><h2><span class="n">2</span>${L.s2}</h2><a class="btn primary big" href="${otLink}">${L.s2b}</a><p class="muted">${L.s2p}</p>
-      <details><summary>${L.manual}</summary><ul style="margin-top:8px"><li>${L.m1}</li><li>${L.m2}<div class="copy"><code id="url">${esc(url)}</code><button id="cp">${L.copy}</button></div></li><li>${L.m3(esc(tid))}</li></ul></details></section>
-    <section class="card"><h2><span class="n">3</span>${L.s3}</h2><ul>${isAnd ? "" : `<li>${L.s3ios}</li>`}${isIOS ? "" : `<li>${L.s3and}</li>`}</ul></section>
-    <section class="card"><h2><span class="n">4</span>${L.s4}</h2><p class="muted">${L.s4p}</p><div class="status wait" id="st" role="status" aria-live="polite"><span class="dot"></span><span>${L.wait}</span></div></section>
-    <section class="card"><h2><span class="n">5</span>${L.s5}</h2><ul>${L.s5l.map(x => `<li>${x}</li>`).join("")}</ul></section>
+    <section class="card"><h2><span class="n">2</span>${L.sx}</h2><p class="muted">${L.sxp}</p><ul>${isAnd ? "" : `<li>${L.sxios}</li>`}${isIOS ? "" : `<li>${L.sxand}</li>`}</ul></section>
+    <section class="card"><h2><span class="n">3</span>${L.s2}</h2><a class="btn primary big" href="${otLink}">${L.s2b}</a><p class="muted">${L.s2p}</p>
+      <details><summary>${L.manual}</summary><ul style="margin-top:8px"><li>${L.m1}</li><li>${L.m2}<div class="copy"><code id="url">${esc(url)}</code><button id="cp">${L.copy}</button></div></li><li>${L.m3(esc(tid))}</li><li>${L.m4}</li></ul></details></section>
+    <section class="card"><h2><span class="n">4</span>${L.s3}</h2><ul>${isAnd ? "" : `<li>${L.s3ios}</li>`}${isIOS ? "" : `<li>${L.s3and}</li>`}</ul></section>
+    <section class="card"><h2><span class="n">5</span>${L.s4}</h2><p class="muted">${L.s4p}</p><div class="status wait" id="st" role="status" aria-live="polite"><span class="dot"></span><span>${L.wait}</span></div></section>
+    <section class="card"><h2><span class="n">6</span>${L.s5}</h2><ul>${L.s5l.map(x => `<li>${x}</li>`).join("")}</ul></section>
     <p class="muted" style="text-align:center">${L.privacy}</p>
   </main>`;
   document.getElementById("lang").onclick = () => { L = L === EN ? ES : EN; document.documentElement.lang = L === EN ? "en" : "es"; render(); check(); };

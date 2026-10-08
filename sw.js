@@ -1,5 +1,5 @@
 // Offline-first service worker: race day networks are congested
-const V = "cheer-chi26-v5";
+const V = "cheer-chi26-v6";
 const CORE = ["/", "/index.html", "/css/app.css", "/js/main.js", "/js/state.js", "/js/engine.js", "/js/pace.js", "/js/plan.js", "/js/map.js", "/js/live.js", "/js/ui.js", "/js/race-chicago.js", "/js/i18n.js", "/js/i18n-en.js", "/js/share.js", "/js/onboarding.js", "/js/alarm.js", "/js/track.js", "/js/vendor/qrcode.js", "/data/mapdata.json", "/data/walkgraph.json", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(V).then(c => c.addAll(CORE)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

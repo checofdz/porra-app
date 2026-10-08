@@ -29,8 +29,9 @@ async function pipeline(st, cmds) {
   return r.json();
 }
 async function readBody(req) {
-  if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) return req.body;
-  let raw = req.body;
+  let raw;
+  try { raw = req.body; } catch (e) { return null; } // Vercel's body getter throws on invalid JSON
+  if (raw && typeof raw === "object" && !Buffer.isBuffer(raw)) return raw;
   if (raw == null) { raw = await new Promise((ok, ko) => { let d = ""; req.on("data", c => { d += c; if (d.length > 20000) ko(new Error("too big")); }); req.on("end", () => ok(d)); req.on("error", ko); }); }
   if (Buffer.isBuffer(raw)) raw = raw.toString("utf8");
   try { return JSON.parse(raw || "null"); } catch (e) { return null; }
@@ -68,7 +69,12 @@ module.exports = async function handler(req, res) {
       return send(res, 200, []); // OwnTracks expects a JSON array
     }
     if (req.method === "GET") {
-      if (q.has("ping")) return send(res, 200, { ok: true, storage: !!st, now: Date.now() });
+      if (q.has("ping")) {
+        // storage = credentials present; redis = a real round trip to the database works
+        let redis = false, error;
+        if (st) { try { const o = await pipeline(st, [["PING"]]); redis = !!(o && o[0] && o[0].result === "PONG"); } catch (e) { error = String(e.message || e); } }
+        return send(res, 200, { ok: true, storage: !!st, redis, error, now: Date.now() });
+      }
       if (!st) return send(res, 503, { ok: false, error: "storage" });
       const ids = (q.get("id") || "").split(",").filter(x => ID_RE.test(x)).slice(0, 12);
       if (!ids.length) return send(res, 400, { ok: false, error: "id" });
